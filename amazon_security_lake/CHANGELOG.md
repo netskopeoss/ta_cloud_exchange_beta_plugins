@@ -1,4 +1,4 @@
-# 1.1.0-beta
+# 1.1.0
 ## Added
 - Added multiple authentication methods.
 

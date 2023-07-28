@@ -1,5 +1,4 @@
 """Genarating Temporary Credentials using IAM Roles Anywhere"""
-import sys
 import base64
 import datetime
 import hashlib
@@ -145,6 +144,12 @@ class AmazonSecurityLakeGenerateTemporaryCredentials():
                 data=request_parameters,
                 headers=headers
             )
+            if r.status_code not in [200, 201]:
+                error_msg = r.json().get("message", "unexpected error.")
+                raise Exception(
+                    "Unable to generate Temporary Credentials. "
+                    f"Error: {error_msg}"
+                )
             return r.json()
         except Exception as err:
             raise err

@@ -56,13 +56,15 @@ from .utils.amazon_security_lake_client import (
 )
 
 from netskope.integrations.cls.utils.converter import type_converter
+from netskope.common.utils import add_user_agent
 
-PLUGIN = "CLS Amazon Security Lake"
+MODULE_NAME = "CLS"
+PLUGIN_NAME = "Amazon Security Lake"
+PLUGIN_VERSION = "1.1.0"
 
 
 class AmazonSecurityLakePluginException(Exception):
     """AmazonSecurityLakePluginException custom exception class."""
-
     pass
 
 
@@ -82,9 +84,80 @@ class CustomTransformedData:
 class AmazonSecurityLakePlugin(PluginBase):
     """The Amazon Security Lake plugin implementation class."""
 
-    def __init__(self, name, *args, **kwargs):
-        super().__init__(name, *args, **kwargs)
-        self.log_prefix = f"{PLUGIN} [{name}]"
+    def __init__(
+        self,
+        name,
+        *args,
+        **kwargs,
+    ):
+        """Initialize AmazonSecurityLakePlugin class."""
+        super().__init__(
+            name,
+            *args,
+            **kwargs,
+        )
+        self.plugin_name, self.plugin_version = self._get_plugin_info()
+        self.log_prefix = f"{MODULE_NAME} {self.plugin_name} [{name}]"
+
+    def _get_plugin_info(self) -> tuple:
+        """Get plugin name and version from manifest.
+
+        Returns:
+            tuple: Tuple of plugin's name and version fetched from manifest.
+        """
+        try:
+            file_path = os.path.join(
+                str(os.path.dirname(os.path.abspath(__file__))),
+                "manifest.json",
+            )
+            with open(file_path, "r") as manifest:
+                manifest_json = json.load(manifest)
+                plugin_name = manifest_json.get("name", PLUGIN_NAME)
+                plugin_version = manifest_json.get("version", "")
+                return (plugin_name, plugin_version)
+
+        except Exception:
+            return (PLUGIN_NAME, PLUGIN_VERSION)
+
+    def _add_user_agent(self, header=None):
+        """Add User-Agent in the headers of any request.
+
+        Args:
+            header: Headers needed to pass to the Third Party Platform.
+
+        Returns:
+            Dict: Dictionary containing the User-Agent.
+        """
+        plugin_version = self._get_plugin_info()
+
+        header = add_user_agent(header)
+        header.update(
+            {
+                "User-Agent": f"{header.get('User-Agent', 'netskope-ce')}-cls-amazon_security_lake-v{plugin_version[1]}",
+            }
+        )
+        return str(header)
+
+    def get_subtype_mapping(self, mappings, subtype):
+        """To Retrieve subtype mappings (mappings for subtypes of \
+            alerts/events) case insensitively.
+
+        Args:
+            mappings: Mapping JSON from which subtypes are to be retrieved
+            subtype: Subtype (e.g. DLP for alerts) for which the \
+                mapping is to be fetched
+
+        Returns:
+            Fetched mapping JSON object
+        """
+        try:
+            mappings = {k.lower(): v for k, v in mappings.items()}
+            if subtype.lower() in mappings:
+                return mappings[subtype.lower()]
+            else:
+                return mappings[subtype.upper()]
+        except Exception:
+            raise
 
     def _transform_value(
         self,
@@ -110,9 +183,8 @@ class AmazonSecurityLakePlugin(PluginBase):
                 f"Error: {str(e)}. "
                 "'None' will be sent as field value."
             )
-            self.logger.error(
-                message=error_message,
-                details=traceback.format_exc()
+            self.logger.debug(
+                error_message
             )
         return transformed_value
 
@@ -241,7 +313,10 @@ class AmazonSecurityLakePlugin(PluginBase):
             table = {}
             table["data"] = []
             try:
-                mappings = self.mappings["taxonomy"][data_type][subtype]["extension"]
+                amazon_security_lake_subtype_mapping = self.get_subtype_mapping(
+                    self.mappings["taxonomy"][data_type],
+                    subtype
+                )
             except KeyError as err:
                 error_message = (
                     f"{self.log_prefix}: Error occurred while "
@@ -255,12 +330,15 @@ class AmazonSecurityLakePlugin(PluginBase):
                 )
                 raise AmazonSecurityLakePluginException(err)
             try:
-                for key in mappings.keys():
+                for key in amazon_security_lake_subtype_mapping["extension"].keys():
                     key = self._get_key(key)
                     table[key] = []
                 for data in raw_data:
                     self._transform_and_append(
-                        data_type, subtype, data, mappings, table
+                        data_type, subtype,
+                        data,
+                        amazon_security_lake_subtype_mapping["extension"],
+                        table
                     )
                 return CustomTransformedData(data=table)
             except Exception as e:
@@ -274,12 +352,14 @@ class AmazonSecurityLakePlugin(PluginBase):
     def push(self, transformed_data, data_type, subtype) -> PushResult:
         """Push the transformed_data to the 3rd party platform."""
         try:
+            user_agent = self._add_user_agent()
             aws_client = AmazonSecurityLakeClient(
                 self.configuration,
                 self.logger,
                 self.proxy,
                 self.storage,
-                self.log_prefix
+                self.log_prefix,
+                user_agent,
             )
             aws_client.set_credentials()
             data = json.dumps(transformed_data.data)
@@ -343,13 +423,12 @@ class AmazonSecurityLakePlugin(PluginBase):
             )
 
         if configuration.get("authentication_method", "").strip() not in [
-            "aws_secret_credentials",
             "aws_iam_roles_anywhere",
             "deployed_on_aws",
         ]:
             error_msg = (
                 "Error: Invalid value for Authentication Method provided. "
-                "Allowed values are 'AWS Secret Credentials', "
+                "Allowed values are "
                 "'AWS IAM Roles Anywhere' or 'Deployed on AWS'."
                 )
             self.logger.error(
@@ -359,70 +438,6 @@ class AmazonSecurityLakePlugin(PluginBase):
                 success=False,
                 message=f"{error_msg}",
             )
-
-        if configuration.get("authentication_method", "").strip() == "aws_secret_credentials":
-            if (
-                "aws_public_key" not in configuration
-                or not configuration.get("aws_public_key", "").strip()
-            ):
-                error_msg = (
-                    "AWS Access Key ID is a required field when '"
-                    "AWS Secret Credentials' is selected as "
-                    "Authentication Method."
-                )
-                self.logger.error(
-                    f"{self.log_prefix}: Validation error occurred. Error: "
-                    f"{error_msg}"
-                )
-                return ValidationResult(
-                    success=False,
-                    message=f"{error_msg}",
-                )
-
-            elif type(configuration.get("aws_public_key", "")) != str:
-                error_msg = (
-                    "Invalid Value for 'AWS Access Key Id' "
-                    "found in the configuration parameter."
-                )
-                self.logger.error(
-                    f"{self.log_prefix}: Validation error occurred. Error: "
-                    f"{error_msg}"
-                )
-                return ValidationResult(
-                    success=False,
-                    message=f"{error_msg}",
-                )
-
-            if (
-                "aws_private_key" not in configuration
-                or not configuration.get("aws_private_key", "")
-            ):
-                error_msg = (
-                    "AWS Secret Access Key is a required field when "
-                    "'AWS Secret Credentials' is selected as "
-                    "Authentication Method."
-                )
-                self.logger.error(
-                    f"{self.log_prefix}: Validation error occurred. Error: "
-                    f"{error_msg}"
-                )
-                return ValidationResult(
-                    success=False,
-                    message=f"{error_msg}",
-                )
-
-            elif type(configuration.get("aws_private_key", "")) != str:
-                error_msg = (
-                    "Invalid Value for 'AWS Secret Access Key' provided."
-                )
-                self.logger.error(
-                    f"{self.log_prefix}: Validation error occurred. Error: "
-                    f"{error_msg}"
-                )
-                return ValidationResult(
-                    success=False,
-                    message=f"{error_msg}",
-                )
 
         if configuration.get("authentication_method", "").strip() == "aws_iam_roles_anywhere":
             if (
@@ -572,12 +587,12 @@ class AmazonSecurityLakePlugin(PluginBase):
         ):
             self.logger.error(
                 f"{self.log_prefix}: Validation error occurred. "
-                "Error: Invalid Region Name found in the "
+                "Error: Invalid AWS S3 Source Bucket Region found in the "
                 "configuration parameters."
             )
             return ValidationResult(
                 success=False,
-                message="Invalid Region Name provided.",
+                message="Invalid AWS S3 Source Bucket Region provided.",
             )
 
         if (
@@ -586,10 +601,10 @@ class AmazonSecurityLakePlugin(PluginBase):
         ):
             self.logger.error(
                 f"{self.log_prefix}: Validation error occurred. "
-                "Error: Bucket Name is a required parameter."
+                "Error: AWS S3 Source Bucket is a required parameter."
             )
             return ValidationResult(
-                success=False, message="Bucket Name is a required parameter."
+                success=False, message="AWS S3 Source Bucket is a required parameter."
             )
 
         if (
@@ -597,28 +612,30 @@ class AmazonSecurityLakePlugin(PluginBase):
         ):
             self.logger.error(
                 f"{self.log_prefix}: Validation error occurred. "
-                "Error: Invalid Bucket Name found in the "
+                "Error: Invalid AWS S3 Source Bucket found in the "
                 "configuration parameters."
             )
             return ValidationResult(
-                success=False, message="Invalid Bucket Name provided."
+                success=False, message="Invalid AWS S3 Source Bucket provided."
             )
 
         try:
+            user_agent = self._add_user_agent()
             aws_client = AmazonSecurityLakeClient(
                 configuration,
                 self.logger,
                 self.proxy,
                 self.storage,
-                self.log_prefix
+                self.log_prefix,
+                user_agent
             )
             aws_client.set_credentials()
             aws_validator.validate_credentials(aws_client)
         except Exception as err:
             error_msg = "Invalid authentication parameters provided."
             self.logger.error(
-                f"{self.log_prefix}: Validation error occurred. "
-                f"{err}"
+                message=f"{self.log_prefix}: Validation error occurred. Error: {err}",
+                details=traceback.format_exc()
             )
             return ValidationResult(
                 success=False,
@@ -628,33 +645,45 @@ class AmazonSecurityLakePlugin(PluginBase):
         try:
             aws_client.get_bucket()
         except BucketNameAlreadyTaken:
-            self.logger.error(
+            error_msg = (
                 f"{self.log_prefix}: Validation error occurred. "
-                "Error: Provided bucket name already exists at a "
+                "Error: Provided AWS S3 Source Bucket already exists at a "
                 "different region. Please try with different name or "
                 "use the correct region."
+            )
+            self.logger.error(
+                message=error_msg,
+                details=traceback.format_exc()
             )
             return ValidationResult(
                 success=False,
                 message=(
-                    "Validation Error. Provided bucket name already exists "
+                    "Validation Error. Provided AWS S3 Source Bucket already exists "
                     "at a different region. Please try with different name "
                     "or use the correct region."
                 ),
             )
         except ValueError as err:
-            self.logger.error(
+            error_msg = (
                 f"{self.log_prefix}: Validation error occurred. "
                 f"Error: {err}"
+            )
+            self.logger.error(
+                message=error_msg,
+                details=traceback.format_exc()
             )
             return ValidationResult(
                 success=False,
                 message="Validation Error. Check logs for more details.",
             )
         except Exception as err:
-            self.logger.error(
+            error_msg = (
                 f"{self.log_prefix}: Validation error occurred. "
                 f"Error: {err}"
+            )
+            self.logger.error(
+                message=error_msg,
+                details=traceback.format_exc()
             )
             return ValidationResult(
                 success=False,

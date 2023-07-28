@@ -17,37 +17,17 @@
             "type": "choice",
             "choices": [
                 {
-                    "key": "AWS Secret Credentials",
-                    "value": "aws_secret_credentials"
+                    "key": "Deployed on AWS",
+                    "value": "deployed_on_aws"
                 },
                 {
                     "key": "AWS IAM Roles Anywhere",
                     "value": "aws_iam_roles_anywhere"
-                },
-                {
-                    "key": "Deployed on AWS",
-                    "value": "deployed_on_aws"
                 }
             ],
-            "default": "aws_secret_credentials",
+            "default": "deployed_on_aws",
             "mandatory": true,
             "description": "Select the method to be used for AWS client authentication."
-        },
-        {
-            "label": "AWS Access Key ID (Public Key)",
-            "key": "aws_public_key",
-            "type": "text",
-            "default": "",
-            "mandatory": false,
-            "description": "AWS Access Key ID for AWS client authentication. Required for 'AWS Secret Credentials' authentication type."
-        },
-        {
-            "label": "AWS Secret Access Key (Private Key)",
-            "key": "aws_private_key",
-            "type": "password",
-            "default": "",
-            "mandatory": false,
-            "description": "AWS Secret Access Key for AWS client authentication. Required for 'AWS Secret Credentials' authentication type."
         },
         {
             "label": "Private Key File",
@@ -98,7 +78,7 @@
             "description": "AWS Trust Anchor ARN for AWS client authentication. Required for 'AWS IAM Roles Anywhere' authentication type."
         },
         {
-            "label": "Region Name",
+            "label": "AWS S3 Source Bucket Region",
             "key": "region_name",
             "type": "choice",
             "choices": [
@@ -217,15 +197,15 @@
             ],
             "default": "us-east-1",
             "mandatory": true,
-            "description": "Region Name from where to get an S3 Bucket. Make sure that the region name matches the region in the Profile ARN and Trust Anchor ARN."
+            "description": "Region Name from where to get the AWS S3 Source Bucket. Make sure that the region name matches the region in the Profile ARN and Trust Anchor ARN."
         },
         {
-            "label": "Bucket Name",
+            "label": "AWS S3 Source Bucket",
             "key": "bucket_name",
             "type": "text",
             "default": "",
             "mandatory": true,
-            "description": "Bucket Name in which the data object will be stored. Note: If bucket with the specified name does not exists in the selected region then new bucket will be created."
+            "description": "AWS S3 Source Bucket Name in which the data object will be stored. Note: If a bucket with the specified name does not exist in the selected region then a new bucket will be created."
         }
     ]
 }

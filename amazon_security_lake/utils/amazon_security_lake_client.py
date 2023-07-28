@@ -52,28 +52,21 @@ class BucketNameAlreadyTaken(Exception):
 class AmazonSecurityLakeClient:
     """Amazon Security Lake Client Class."""
 
-    def __init__(self, configuration, logger, proxy, storage, log_prefix):
+    def __init__(self, configuration, logger, proxy, storage, log_prefix, user_agent):
         """Init method."""
         self.configuration = configuration
         self.logger = logger
         self.proxy = proxy
         self.storage = storage
         self.log_prefix = log_prefix
+        self.useragent = user_agent
         self.aws_private_key = None
         self.aws_public_key = None
         self.aws_session_token = None
 
-
     def set_credentials(self):
         try:
             if(
-                self.configuration.get("authentication_method") == "aws_secret_credentials"
-            ):
-                self.aws_public_key = self.configuration.get("aws_public_key")
-                self.aws_private_key = self.configuration.get("aws_private_key")
-                self.aws_session_token = None
-
-            elif(
                 self.configuration.get("authentication_method") == "aws_iam_roles_anywhere"
             ):
                 temp_creds_obj = AmazonSecurityLakeGenerateTemporaryCredentials(
@@ -90,7 +83,7 @@ class AmazonSecurityLakeClient:
                     if credentials:
                         self.storage["credentials"] = credentials
                     else:
-                        raise Exception("Unable to generate Temporary Credentials.")
+                        raise Exception("Unable to generate Temporary Credentials. Check the configuration paramters.")
 
                 elif datetime.datetime.strptime(self.storage.get("credentials").get("expiration"), '%Y-%m-%dT%H:%M:%SZ') <= datetime.datetime.utcnow()-datetime.timedelta(hours=0, minutes=3):
                     temporary_credentials = temp_creds_obj.generate_temporary_credentials()
@@ -114,7 +107,10 @@ class AmazonSecurityLakeClient:
                 aws_access_key_id=self.aws_public_key,
                 aws_secret_access_key=self.aws_private_key,
                 region_name=self.configuration.get("region_name").strip(),
-                config=Config(proxies=self.proxy),
+                config=Config(
+                    proxies=self.proxy,
+                    user_agent=self.useragent
+                ),
             )
             return amazon_security_lake_resource
         except Exception:
@@ -129,7 +125,10 @@ class AmazonSecurityLakeClient:
                 aws_secret_access_key=self.aws_private_key,
                 aws_session_token=self.aws_session_token,
                 region_name=self.configuration.get("region_name").strip(),
-                config=Config(proxies=self.proxy),
+                config=Config(
+                    proxies=self.proxy,
+                    user_agent=self.useragent
+                ),
             )
             return amazon_security_lake_client
         except Exception:
