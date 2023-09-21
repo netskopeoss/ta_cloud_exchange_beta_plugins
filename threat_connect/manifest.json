@@ -1,7 +1,7 @@
 {
     "name": "ThreatConnect",
     "id": "threat_connect",
-    "version": "1.1.0-beta",
+    "version": "1.1.1-beta",
     "description": "The ThreatConnect plugin fetches indicators of type File(MD5 and SHA256), URL, Host and Address(IPv4 and IPv6). The URL, Host and Address are stored as URL type in CE and File is distinguished as MD5 and SHA256. The Plugin also supports sharing indicators to ThreatConnect Platform.",
     "patch_supported": true,
     "push_supported": true,
