@@ -1,9 +1,13 @@
-# 2.2.0
+# 3.0.0
+## Added
+- Added "Pagination Method" configuration parameter.
 ## Changed
-- For Taxii v2.0 and v2.1, the pulling of the data is divided into chunks. One pull cycle is limited to 100 bundles of 1000 indicators.
+- In Taxii versions 2.0 and 2.1, data retrieval is divided into chunks. Each retrieval cycle restricted to fetching up to 100 bundles, each containing 1000 objects.
+
 # 2.1.0
 ## Added
 - Added new configuration parameter named Look Back. This can be used to backdate the start time for pulling the data.
+
 # 2.0.3
 ## Added
 - Added changes to make the plugin compatible with the core version 4.1.0.
