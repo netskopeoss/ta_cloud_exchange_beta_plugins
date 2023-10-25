@@ -2,7 +2,6 @@ import requests
 from datetime import datetime, timedelta
 import traceback
 from urllib.parse import urlparse
-import json as json
 import re
 from netskope.integrations.cte.plugin_base import (
     PluginBase,
@@ -23,14 +22,17 @@ MAX_PULL_PAGE_SIZE = 2000
 PLUGIN_NAME = "CommVault CTE Plugin"
 MAX_RETRY_COUNT = 4
 TIME_OUT = 30
+TOKEN_VALIDITY_DAYS = 7
+TOKEN_EXPIRY_BUFFER_SECONDS = 2 * 24 * 60 * 60  # 2 days
 RE_DEL_HTML = re.compile(r"(<span[^>]*>(.+?)</span>)|(<.*?>)")
 RE_GET_LINK = re.compile(r"<a[^>]*href=(.+?)>.+?</a>")
+ACCESS_TOKEN_NAME = "netskope-access-token"
 ANOMALOUS_EVENTCODE_STRINGS = {
     "7:333": {"comments": RE_DEL_HTML, "extended_info": RE_GET_LINK},
     "14:336": {"comments": RE_DEL_HTML, "extended_info": RE_GET_LINK},
     "14:337": {"comments": RE_DEL_HTML, "extended_info": RE_GET_LINK},
     "69:59": {"comments": RE_DEL_HTML, "extended_info": RE_GET_LINK},
-    "69:60": {"comments": RE_DEL_HTML, "extended_info": RE_GET_LINK}
+    "69:60": {"comments": RE_DEL_HTML, "extended_info": RE_GET_LINK},
 }
 
 
@@ -51,12 +53,12 @@ COMMVAULT_TO_NETSCOPE_SEVERITY = {
 
 RAISE_ANOMALY_JSON_REQUEST_STR = """{
     "client": {
-        "hostName":"{}"
+        "hostName":"%s"
     },
     "anomalyDetectedBy": {
-        "vendorName":"{}",
-        "detectionTime":{},
-        "anomalyReason":"{}"
+        "vendorName":"%s",
+        "detectionTime":%d,
+        "anomalyReason":"%s"
     }
 }"""
 
@@ -72,10 +74,11 @@ class CommVaultPlugin(PluginBase):
     def http_request(self, method, custom_message=None, *args, **kwargs):
         if method == "GET":
             resp = requests.get(*args, **kwargs)
-            return self.handle_status_code(resp, custom_message=custom_message)
         if method == "POST":
-            requests.post(*args, **kwargs)
-            return self.handle_status_code(resp, custom_message=custom_message)
+            resp = requests.post(*args, **kwargs)
+        if method == "PUT":
+            resp = requests.put(*args, **kwargs)
+        return self.handle_status_code(resp, custom_message=custom_message)
 
     def _validate_credentials(self, configuration: dict) -> ValidationResult:
         try:
@@ -183,6 +186,7 @@ class CommVaultPlugin(PluginBase):
                 (
                     f" {error_str_prefix} Received"
                     f" exit code {response.status_code}, HTTP client Error."
+                    + f"{response.text}"
                 ),
                 details=response.text,
             )
@@ -259,15 +263,19 @@ class CommVaultPlugin(PluginBase):
             ]["hostName"]
         except KeyError as e:
             self.logger.error(
-                f"Exception while getting client hostname: {str(e)}"
+                f"{PLUGIN_NAME}: Error while getting client hostname: {str(e)}"
             )
         return hostname
 
     def pull(self):
         """Pull indicators from CommVault."""
         try:
+            auth_token = self.configuration["auth_token"]
+            self.validate_session_or_generate_token(auth_token)
             indicators = []
-            base_url = self.configuration["commandcenter_url"]
+            base_url = (
+                self.configuration["commandcenter_url"].strip().strip("/")
+            )
             self.logger.info(
                 f"{PLUGIN_NAME}: Pulling indicators from {base_url} "
             )
@@ -344,9 +352,101 @@ class CommVaultPlugin(PluginBase):
             raise err
         return indicators
 
+    def validate_session_or_generate_token(self, api_token: str) -> bool:
+        """
+        Check for last token generation and generate new token
+        """
+        try:
+            base_url = (
+                self.configuration["commandcenter_url"].strip().strip("/")
+            )
+
+            # Set current auth_token
+            if "auth_token" in self.storage:
+                self.configuration["auth_token"] = self.storage["auth_token"]
+            response = self.http_request(
+                "GET",
+                "Error while getting token details",
+                f"{base_url}/ApiToken/User",
+                params={},
+                headers=self._get_headers(),
+                proxies=self.proxy,
+                verify=self.ssl_validation,
+            )
+            token_expires_epoch = None
+            try:
+                sessions_list = response.get("sessions")
+                for session in sessions_list:
+                    if session.get("tokenName") == ACCESS_TOKEN_NAME:
+                        token_expires_epoch = session.get("tokenExpires").get(
+                            "time"
+                        )
+            except KeyError:
+                pass
+            except IndexError:
+                pass
+
+            current_epoch = int(datetime.now().timestamp())
+            if not token_expires_epoch or (
+                max(int(token_expires_epoch) - current_epoch, 0)
+                < TOKEN_EXPIRY_BUFFER_SECONDS
+            ):
+                return self.generate_access_token()
+
+        except Exception as e:
+            self.logger.error(
+                f"{PLUGIN_NAME}: Exception while validating token: {str(e)}"
+            )
+
+    def generate_access_token(self) -> bool:
+        """
+        Generate access token from API token
+        """
+        self.logger.info(
+            f"{PLUGIN_NAME}: Token about to expire," + "generating a new token"
+        )
+        new_access_token = None
+        base_url = self.configuration["commandcenter_url"].strip().strip("/")
+        current_epoch = int(datetime.now().timestamp())
+        token_expiry_epoch = current_epoch + (
+            TOKEN_VALIDITY_DAYS * 24 * 60 * 60
+        )
+        request_body = {
+            "tokenExpires": {"time": token_expiry_epoch},
+            "scope": 2,
+            "tokenName": ACCESS_TOKEN_NAME,
+        }
+        try:
+            response = self.http_request(
+                "POST",
+                "Error while generating token",
+                f"{base_url}/ApiToken/User",
+                json=request_body,
+                params={},
+                headers=self._get_headers(),
+                proxies=self.proxy,
+                verify=self.ssl_validation,
+            )
+            new_access_token = response.get("token")
+            current_epoch = int(datetime.now().timestamp())
+            self.current_api_token = str(new_access_token)
+            self.storage["auth_token"] = str(new_access_token)
+            self.logger.info(
+                f"{PLUGIN_NAME}: Successfully generated new "
+                + f"token with name:{ACCESS_TOKEN_NAME}"
+            )
+        except Exception as error:
+            self.logger.error(
+                f"{PLUGIN_NAME}: Could not generate access token [{error}]"
+            )
+            return False
+        return True
+
     def push(self, indicators, action_dict) -> PushResult:
         """Push indicators to CommVault."""
         try:
+            auth_token = self.configuration["auth_token"]
+            self.validate_session_or_generate_token(auth_token)
             base_url = (
                 self.configuration["commandcenter_url"].strip().strip("/")
             )
@@ -358,22 +458,22 @@ class CommVaultPlugin(PluginBase):
             for indicator in indicators:
                 if action_dict.get("value") == "report_client_as_anomalous":
                     if indicator.type == IndicatorType.URL:
-                        hostname = indicator.value
+                        hostname = indicator.value.strip()
                         vendorname = "Netskope"
-                        detection_time = indicator.lastSeen
+                        detection_time = int(indicator.lastSeen.timestamp())
                         anomaly_reason = indicator.comments
-                        request_body = RAISE_ANOMALY_JSON_REQUEST_STR.format(
+                        request_body = RAISE_ANOMALY_JSON_REQUEST_STR % (
                             hostname,
                             vendorname,
                             detection_time,
                             anomaly_reason,
                         )
                         self.http_request(
-                            "POST",
-                            f"{base_url}/Client/Action/Report/Anomaly",
+                            "PUT",
                             "Error while pushing indicator",
+                            f"{base_url}/Client/Action/Report/Anomaly",
+                            data=request_body,
                             params={},
-                            data=json.dumps(request_body),
                             headers=self._get_headers(),
                             proxies=self.proxy,
                             verify=self.ssl_validation,
@@ -395,6 +495,7 @@ class CommVaultPlugin(PluginBase):
         headers = {
             "AuthToken": self.configuration["auth_token"],
             "Accept": "application/json",
+            "Content-Type": "application/json",
         }
         return headers
 
@@ -462,7 +563,6 @@ class CommVaultPlugin(PluginBase):
             )
         ]
 
-
     def validate_action(self, action: Action):
         """Validate Mimecast configuration."""
 
@@ -472,7 +572,6 @@ class CommVaultPlugin(PluginBase):
             return ValidationResult(
                 success=False, message="Unsupported action provided."
             )
-
 
         return ValidationResult(success=True, message="Validation successful.")
 
