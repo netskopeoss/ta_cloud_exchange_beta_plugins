@@ -25,7 +25,7 @@ MAX_PULL_PAGE_SIZE = 2000
 PLUGIN_NAME = "CommVault CTE Plugin"
 MAX_RETRY_COUNT = 4
 TIME_OUT = 30
-TOKEN_VALIDITY_SECONDS = 120  # 7 * 24 * 60 * 60 # 7 days
+TOKEN_VALIDITY_SECONDS =  7 * 24 * 60 * 60 # 7 days
 TOKEN_EXPIRY_BUFFER_SECONDS = 2 * 24 * 60 * 60  # 2 days
 RE_DEL_HTML = re.compile(r"(<span[^>]*>(.+?)</span>)|(<.*?>)")
 RE_GET_LINK = re.compile(r"<a[^>]*href=(.+?)>.+?</a>")
