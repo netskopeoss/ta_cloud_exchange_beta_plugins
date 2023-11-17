@@ -12,7 +12,8 @@
             "default": "https://<CommandCenter_FQDN>/commandcenter/api",
             "mandatory": true,
             "description": "CommVault Command Center URL which alerts are pushed to/pulled from For eg: 'https://commandcenter.nam.contoso.com/commandcenter/api' (Include /commandcenter/api)"
-        },        {
+        },
+        {
             "label": "CommVault REST API Authentication Token",
             "key": "auth_token",
             "type": "password",

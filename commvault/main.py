@@ -1,6 +1,9 @@
 import requests
 from datetime import datetime, timedelta
 import traceback
+import json
+import hashlib
+import uuid
 from urllib.parse import urlparse
 import re
 from netskope.integrations.cte.plugin_base import (
@@ -22,7 +25,7 @@ MAX_PULL_PAGE_SIZE = 2000
 PLUGIN_NAME = "CommVault CTE Plugin"
 MAX_RETRY_COUNT = 4
 TIME_OUT = 30
-TOKEN_VALIDITY_DAYS = 7
+TOKEN_VALIDITY_SECONDS = 120  # 7 * 24 * 60 * 60 # 7 days
 TOKEN_EXPIRY_BUFFER_SECONDS = 2 * 24 * 60 * 60  # 2 days
 RE_DEL_HTML = re.compile(r"(<span[^>]*>(.+?)</span>)|(<.*?>)")
 RE_GET_LINK = re.compile(r"<a[^>]*href=(.+?)>.+?</a>")
@@ -50,17 +53,6 @@ COMMVAULT_TO_NETSCOPE_SEVERITY = {
     9: SeverityType.CRITICAL,
     10: SeverityType.CRITICAL,
 }
-
-RAISE_ANOMALY_JSON_REQUEST_STR = """{
-    "client": {
-        "hostName":"%s"
-    },
-    "anomalyDetectedBy": {
-        "vendorName":"%s",
-        "detectionTime":%d,
-        "anomalyReason":"%s"
-    }
-}"""
 
 
 class CommVaultPlugin(PluginBase):
@@ -155,6 +147,13 @@ class CommVaultPlugin(PluginBase):
                     + " exit code 401, Authentication Error."
                 ),
                 details=response.text,
+            )
+            self.notifier.warn(
+                f"{error_str_prefix} Authentication Error,"
+                + " probably token has expired"
+            )
+            self.logger.error(
+                f"{error_str_prefix} Notified Authentication error"
             )
         elif response.status_code == 403:
             self.logger.error(
@@ -271,7 +270,7 @@ class CommVaultPlugin(PluginBase):
         """Pull indicators from CommVault."""
         try:
             auth_token = self.configuration["auth_token"]
-            self.validate_session_or_generate_token(auth_token)
+            self.validate_session_or_generate_token()
             indicators = []
             base_url = (
                 self.configuration["commandcenter_url"].strip().strip("/")
@@ -352,7 +351,7 @@ class CommVaultPlugin(PluginBase):
             raise err
         return indicators
 
-    def validate_session_or_generate_token(self, api_token: str) -> bool:
+    def validate_session_or_generate_token(self) -> bool:
         """
         Check for last token generation and generate new token
         """
@@ -408,9 +407,7 @@ class CommVaultPlugin(PluginBase):
         new_access_token = None
         base_url = self.configuration["commandcenter_url"].strip().strip("/")
         current_epoch = int(datetime.now().timestamp())
-        token_expiry_epoch = current_epoch + (
-            TOKEN_VALIDITY_DAYS * 24 * 60 * 60
-        )
+        token_expiry_epoch = current_epoch + TOKEN_VALIDITY_SECONDS
         request_body = {
             "tokenExpires": {"time": token_expiry_epoch},
             "scope": 2,
@@ -446,7 +443,7 @@ class CommVaultPlugin(PluginBase):
         """Push indicators to CommVault."""
         try:
             auth_token = self.configuration["auth_token"]
-            self.validate_session_or_generate_token(auth_token)
+            self.validate_session_or_generate_token()
             base_url = (
                 self.configuration["commandcenter_url"].strip().strip("/")
             )
@@ -455,29 +452,53 @@ class CommVaultPlugin(PluginBase):
                 + f"{str(datetime.now())}"
             )
             # build the body
+            request_body = {"anomalyDetections": []}
             for indicator in indicators:
                 if action_dict.get("value") == "report_client_as_anomalous":
                     if indicator.type == IndicatorType.URL:
-                        hostname = indicator.value.strip()
-                        vendorname = "Netskope"
-                        detection_time = int(indicator.lastSeen.timestamp())
-                        anomaly_reason = indicator.comments
-                        request_body = RAISE_ANOMALY_JSON_REQUEST_STR % (
-                            hostname,
-                            vendorname,
-                            detection_time,
-                            anomaly_reason,
-                        )
-                        self.http_request(
-                            "PUT",
-                            "Error while pushing indicator",
-                            f"{base_url}/Client/Action/Report/Anomaly",
-                            data=request_body,
-                            params={},
-                            headers=self._get_headers(),
-                            proxies=self.proxy,
-                            verify=self.ssl_validation,
-                        )
+                        event_id = int(
+                            hashlib.sha1("URL".encode("utf-8")).hexdigest(), 16
+                        ) % (10**8)
+                        anomaly_dict = {
+                            "client": {"hostName": indicator.value.strip()},
+                            "anomalyDetectedBy": {
+                                "vendorName": "NetSkope CTE",
+                                "anomalyDetails": [
+                                    {
+                                        "anomalyEvents": [
+                                            {
+                                                "detectionTime": int(
+                                                    indicator.lastSeen.timestamp()
+                                                ),
+                                                "eventId": str(uuid.uuid4())[
+                                                    :8
+                                                ],
+                                                "eventUrl": indicator.extendedInformation,
+                                            }
+                                        ],
+                                        "detectionTime": int(
+                                            indicator.lastSeen.timestamp()
+                                        ),
+                                        "anomalyReason": indicator.comments,
+                                        "eventId": str(event_id),
+                                        "timesSeen": 1,
+                                        "eventType": "URL",
+                                    }
+                                ],
+                            },
+                        }
+                        request_body["anomalyDetections"].append(anomaly_dict)
+
+            self.http_request(
+                "PUT",
+                "Error while pushing indicator",
+                f"{base_url}/Client/Action/Report/Bulk/Anomaly",
+                json=request_body,
+                params={},
+                headers=self._get_headers(),
+                proxies=self.proxy,
+                verify=self.ssl_validation,
+            )
 
         except Exception as e:
             return PushResult(
