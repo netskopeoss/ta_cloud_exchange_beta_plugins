@@ -79,7 +79,7 @@ class CommVaultPlugin(PluginBase):
                 "Accept": "application/json",
             }
             response = requests.get(
-                f"{base_url}/ApiToken/User",
+                f"{base_url}/Events",
                 headers=headers,
                 proxies=self.proxy,
                 verify=self.ssl_validation,
@@ -268,7 +268,6 @@ class CommVaultPlugin(PluginBase):
     def pull(self):
         """Pull indicators from CommVault."""
         try:
-            self.validate_session_or_generate_token()
             indicators = []
             base_url = (
                 self.configuration["commandcenter_url"].strip().strip("/")
@@ -352,108 +351,10 @@ class CommVaultPlugin(PluginBase):
             raise err
         return indicators
 
-    def validate_session_or_generate_token(self) -> bool:
-        """
-        Check for last token generation and generate new token
-        """
-        try:
-            base_url = (
-                self.configuration["commandcenter_url"].strip().strip("/")
-            )
-            sessions_list = []
-            # Set current auth_token
-            if "auth_token" in self.storage:
-                self.configuration["auth_token"] = self.storage["auth_token"]
-                response = self.http_request(
-                    "GET",
-                    "Error while getting token details",
-                    f"{base_url}/ApiToken/User",
-                    params={},
-                    headers=self._get_headers(),
-                    proxies=self.proxy,
-                    verify=self.ssl_validation,
-                )
-                sessions_list = response.get("sessions")
-            token_expires_epoch = None
-            current_epoch = int(datetime.now().timestamp())
-            token_name = ""
-            if "token_name" in self.storage:
-                token_name = self.storage["token_name"]
-            else:
-                token_name = ACCESS_TOKEN_NAME_PREFIX + str(uuid.uuid4())
-            if sessions_list:
-                try:
-                    for session in sessions_list:
-                        if token_name == session.get("tokenName"):
-                            token_expires_epoch = session.get(
-                                "tokenExpires"
-                            ).get("time")
-                except KeyError:
-                    pass
-                except IndexError:
-                    pass
-
-            if not token_expires_epoch or (
-                max(int(token_expires_epoch) - current_epoch, 0)
-                < TOKEN_EXPIRY_BUFFER_SECONDS
-            ):
-                token_expiry_epoch = current_epoch + TOKEN_VALIDITY_SECONDS
-                return self.generate_access_token(
-                    token_name, token_expiry_epoch
-                )
-
-        except Exception as e:
-            self.logger.error(
-                f"{PLUGIN_NAME}: Exception while validating token: {str(e)}"
-            )
-
-    def generate_access_token(self, token_name, token_expiry_epoch) -> bool:
-        """
-        Generate access token from API token
-        """
-        self.logger.info(
-            f"{PLUGIN_NAME}: Token about to expire,"
-            + "generating a new token"
-            + f"with name: {token_name} and "
-            + f"expiry epoch time: {token_expiry_epoch}"
-        )
-        new_access_token = None
-        base_url = self.configuration["commandcenter_url"].strip().strip("/")
-        request_body = {
-            "tokenExpires": {"time": token_expiry_epoch},
-            "scope": 2,
-            "tokenName": token_name,
-        }
-        try:
-            response = self.http_request(
-                "POST",
-                "Error while generating token",
-                f"{base_url}/ApiToken/User",
-                json=request_body,
-                params={},
-                headers=self._get_headers(),
-                proxies=self.proxy,
-                verify=self.ssl_validation,
-            )
-            new_access_token = response.get("token")
-            self.current_api_token = str(new_access_token)
-            self.storage["auth_token"] = str(new_access_token)
-            self.storage["token_name"] = token_name
-            self.logger.info(
-                f"{PLUGIN_NAME}: Successfully generated new "
-                + f"token with name:{token_name}"
-            )
-        except Exception as error:
-            self.logger.error(
-                f"{PLUGIN_NAME}: Could not generate access token [{error}]"
-            )
-            return False
-        return True
 
     def push(self, indicators, action_dict) -> PushResult:
         """Push indicators to CommVault."""
         try:
-            self.validate_session_or_generate_token()
             base_url = (
                 self.configuration["commandcenter_url"].strip().strip("/")
             )
