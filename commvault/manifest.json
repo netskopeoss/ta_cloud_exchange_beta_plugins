@@ -1,0 +1,33 @@
+{
+    "name": "CommVault",
+    "id": "commvault",
+    "version": "1.0.1",
+    "description": "The **Commvault Security IQ** plugin shares backup anomaly insights with Netskope (Cloud Exchange) to inform organizations when suspicious behaviour and data changes are occurring within backup content using Commvault REST APIs.",
+    "patch_supported": false,
+    "configuration": [
+        {
+            "label": "Command Center API URL",
+            "key": "commandcenter_url",
+            "type": "text",
+            "default": "https://<CommandCenter_FQDN>/commandcenter/api",
+            "mandatory": true,
+            "description": "CommVault Command Center URL which alerts are pushed to/pulled from For eg: 'https://commandcenter.nam.contoso.com/commandcenter/api' (Include /commandcenter/api)"
+        },
+        {
+            "label": "CommVault REST API Authentication Token",
+            "key": "auth_token",
+            "type": "password",
+            "default": "",
+            "mandatory": true,
+            "description": "CommVault REST API authToken."
+        },
+        {
+            "label": "Initial Range (in days)",
+            "key": "days",
+            "type": "number",
+            "mandatory": true,
+            "default": 7,
+            "description": "Number of days to pull the data for the initial run."
+        }
+    ]
+}
