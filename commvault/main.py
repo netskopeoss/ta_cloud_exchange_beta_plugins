@@ -38,19 +38,27 @@ ANOMALOUS_EVENTCODE_STRINGS = {
 }
 
 
-COMMVAULT_TO_NETSCOPE_SEVERITY = {
+COMMVAULT_TO_NETSKOPE_SEVERITY = {
     -1: SeverityType.UNKNOWN,
     0: SeverityType.LOW,
     1: SeverityType.LOW,
     2: SeverityType.LOW,
-    3: SeverityType.LOW,
-    4: SeverityType.HIGH,
-    5: SeverityType.HIGH,
+    3: SeverityType.MEDIUM,
+    4: SeverityType.MEDIUM,
+    5: SeverityType.MEDIUM,
     6: SeverityType.HIGH,
     7: SeverityType.HIGH,
-    8: SeverityType.CRITICAL,
+    8: SeverityType.HIGH,
     9: SeverityType.CRITICAL,
     10: SeverityType.CRITICAL,
+}
+
+NETSKOPE_TO_COMMVAULT_SEVERITY = {
+    SeverityType.UNKNOWN: 0,
+    SeverityType.LOW: 1,
+    SeverityType.HIGH: 2,
+    SeverityType.MEDIUM: 4,
+    SeverityType.CRITICAL: 5,
 }
 
 
@@ -331,7 +339,7 @@ class CommVaultPlugin(PluginBase):
                             type=IndicatorType.URL,
                             firstSeen=detectedTime,
                             lastSeen=detectedTime,
-                            severity=COMMVAULT_TO_NETSCOPE_SEVERITY.get(
+                            severity=COMMVAULT_TO_NETSKOPE_SEVERITY.get(
                                 event.get("severity"), -1
                             ),
                             tags=[],
@@ -351,7 +359,6 @@ class CommVaultPlugin(PluginBase):
             raise err
         return indicators
 
-
     def push(self, indicators, action_dict) -> PushResult:
         """Push indicators to CommVault."""
         try:
@@ -359,14 +366,14 @@ class CommVaultPlugin(PluginBase):
                 self.configuration["commandcenter_url"].strip().strip("/")
             )
             self.logger.info(
-                f"{PLUGIN_NAME}: Pushing indicators started at:"
+                f"{PLUGIN_NAME}: Pushing indicators started at: "
                 + f"{str(datetime.now())}"
             )
             # build the body
             request_body = {"anomalyDetections": []}
             for indicator in indicators:
                 indicator_value = indicator.value.strip()
-                lastSeen = indicator.lastSeen()
+                lastSeen = indicator.lastSeen
                 extendedInformation = indicator.extendedInformation
                 if action_dict.get("value") == "report_client_as_anomalous":
                     if indicator.type == IndicatorType.URL:
@@ -399,12 +406,22 @@ class CommVaultPlugin(PluginBase):
                                         "eventId": str(event_id),
                                         "timesSeen": 1,
                                         "eventType": "URL",
+                                        "additionalInfo": [
+                                            {
+                                                "dataType": 2,
+                                                "name": "SeverityScore",
+                                                "value": str(
+                                                    NETSKOPE_TO_COMMVAULT_SEVERITY.get(
+                                                        indicator.severity
+                                                    )
+                                                ),
+                                            }
+                                        ],
                                     }
                                 ],
                             },
                         }
                         request_body["anomalyDetections"].append(anomaly_dict)
-
             self.http_request(
                 "PUT",
                 "Error while pushing indicator",
