@@ -1,6 +1,7 @@
 # 2.1.0
 ## Fixed
 - Fixed performance issues.
+- Fixed parsing issue.
 
 ## Added
 - Added support for CTEP, Remediation and Watchlist alerts.
