@@ -29,60 +29,51 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-CTE Anomali Threatstream Plugin's main file which contains the implementation 
+CTE Anomali Threatstream Plugin's main file which contains the implementation
 of all the plugin's methods."""
 
-from datetime import datetime, timedelta
-import traceback
-import json
-import re
+import hashlib
 import ipaddress
+import json
 import math
-import sys
-
+import re
+import traceback
+from datetime import datetime, timedelta
+from typing import Dict, List, Tuple, Union, Generator
 from urllib.parse import urlparse
-from pydantic import ValidationError
-from typing import List, Tuple
-
-from netskope.integrations.cte.plugin_base import (
-    PluginBase,
-    ValidationResult,
-    PushResult,
-)
-
-from netskope.integrations.cte.utils import TagUtils
+from sys import getsizeof
 
 from netskope.integrations.cte.models import (
-    Indicator,
-    IndicatorType,
-    SeverityType,
-    TagIn,
+    Indicator, IndicatorType,
+    SeverityType, TagIn
 )
 from netskope.integrations.cte.models.business_rule import (
-    Action,
-    ActionWithoutParams,
+    Action, ActionWithoutParams
 )
-
-from .utils.anomali_threatstream_helper import (
-    AnomaliThreatstreamPluginHelper,
-    AnomaliThreatstreamPluginException,
+from netskope.integrations.cte.plugin_base import (
+    PluginBase, PushResult,
+    ValidationResult
 )
+from netskope.integrations.cte.utils import TagUtils
+from pydantic import ValidationError
 
 from .utils.anomali_threatstream_constant import (
-    MODULE_NAME,
-    PLUGIN_NAME,
-    PLUGIN_VERSION,
-    PLATFORM_NAME,
-    DATE_FORMAT_FOR_IOCS,
-    MAX_PAGE_SIZE,
-    PAGE_LIMIT,
-    TARGET_SIZE_MB,
-    ANOMALI_SEVERITY_MAPPING,
-    SEVERITY_MAPPING,
-    ANOMALI_TO_INTERNAL_TYPE,
     ANOMALI_SEVERITY,
-    INDICATOR_TYPES,
+    ANOMALI_SEVERITY_MAPPING,
     ANOMALI_STATUS,
+    DATE_FORMAT_FOR_IOCS,
+    INDICATOR_TYPES,
+    INTEGER_THRESHOLD,
+    MAX_PAGE_SIZE, MODULE_NAME,
+    PAGE_LIMIT, PLATFORM_NAME,
+    PLUGIN_NAME, PLUGIN_VERSION,
+    SEVERITY_MAPPING,
+    TARGET_SIZE_MB,
+    BYTES_TO_MB,
+    TAG_NAME
+)
+from .utils.anomali_threatstream_helper import (
+    AnomaliThreatstreamPluginException, AnomaliThreatstreamPluginHelper
 )
 
 
@@ -135,11 +126,15 @@ class AnomaliThreatstreamPlugin(PluginBase):
             )
         return PLUGIN_NAME, PLUGIN_VERSION
 
-    def get_headers(self, configuration):
-        """Get headers required for the API call."""
+    def get_headers(self, user_name: str, api_key: str) -> Dict:
+        """Get headers required for the API call.
+        Args:
+            - user_name (str): Anomali ThreatStream Platform Username.
+            - api_key (str): Anomali ThreatStream Platform API Key.
+        """
         return self.anomali_threatstream_helper._add_user_agent(
             {
-                "Authorization": f"apikey {configuration.get('username').strip()}:{configuration.get('api_key')}",
+                "Authorization": f"apikey {user_name}:{api_key}",
                 "Content-Type": "application/json",
                 "Accept": "application/json",
             }
@@ -156,8 +151,10 @@ class AnomaliThreatstreamPlugin(PluginBase):
             ValidateResult object with success flag and message.
         """
         validation_err_msg = f"{self.log_prefix}: Validation error occurred."
+        (
+            base_url, user_name, api_key
+        ) = self._get_credentials(configuration)
 
-        base_url = configuration.get("base_url", "").strip()
         if not base_url:
             err_msg = "Base URL is a required configuration parameter."
             self.logger.error(f"{validation_err_msg} {err_msg}")
@@ -173,15 +170,14 @@ class AnomaliThreatstreamPlugin(PluginBase):
                 message=err_msg,
             )
 
-        username = configuration.get("username", "").strip()
-        if not username:
+        if not user_name:
             err_msg = "Username is a required configuration parameter."
             self.logger.error(f"{validation_err_msg} {err_msg}")
             return ValidationResult(
                 success=False,
                 message=err_msg,
             )
-        elif not isinstance(username, str):
+        elif not isinstance(user_name, str):
             err_msg = "Invalid Username provided in configuration parameters."
             self.logger.error(f"{validation_err_msg} {err_msg}")
             return ValidationResult(
@@ -189,7 +185,6 @@ class AnomaliThreatstreamPlugin(PluginBase):
                 message=err_msg,
             )
 
-        api_key = configuration.get("api_key", "")
         if not api_key:
             err_msg = "API Key is a required configuration parameter."
             self.logger.error(f"{validation_err_msg} {err_msg}")
@@ -230,7 +225,11 @@ class AnomaliThreatstreamPlugin(PluginBase):
         if not (
             all(indicator_type in INDICATOR_TYPES for indicator_type in indicator_type)
         ):
-            err_msg = "Invalid value for Type of Threat data to pull provided. Available values are 'IP','IPv6', 'Domain', 'URL', 'Hash [SHA256]', or 'Hash [MD5]'."
+            err_msg = (
+                "Invalid value for Type of Threat data to pull provided. "
+                "Allowed values are 'IP','IPv6', 'Domain', 'URL', "
+                "'Hash [SHA256]', or 'Hash [MD5]'."
+            )
             self.logger.error(f"{validation_err_msg} {err_msg}")
             return ValidationResult(
                 success=False,
@@ -245,7 +244,7 @@ class AnomaliThreatstreamPlugin(PluginBase):
             )
             self.logger.error(f"{validation_err_msg} {err_msg}")
             return ValidationResult(success=False, message=err_msg)
-        elif confidence and not (0 <= confidence <= 100):
+        elif confidence and not 0 <= confidence <= 100:
             err_msg = "Minimum Confidence should be in range of 0 to 100."
             self.logger.error(f"{validation_err_msg} {err_msg}")
             return ValidationResult(
@@ -254,14 +253,20 @@ class AnomaliThreatstreamPlugin(PluginBase):
             )
 
         severity = configuration.get("severity", [])
-        if severity and not (all(sev in ANOMALI_SEVERITY for sev in severity)):
-            err_msg = "Invalid value for Severity provided. Available values are 'Low', 'Medium', 'High' or 'Very-High'."
+        if severity and not all(sev in ANOMALI_SEVERITY for sev in severity):
+            err_msg = (
+                "Invalid value for Severity provided. Allowed values are "
+                "'Low', 'Medium', 'High' or 'Very-High'."
+            )
             self.logger.error(f"{self.log_prefix}: {err_msg}")
             return ValidationResult(success=False, message=err_msg)
 
         status = configuration.get("status", [])
-        if status and not (all(stat in ANOMALI_STATUS for stat in status)):
-            err_msg = "Invalid value for Status provided. Available values are 'Active','Inactive' or 'False Positive'."
+        if status and not all(stat in ANOMALI_STATUS for stat in status):
+            err_msg = (
+                "Invalid value for Status provided. Allowed values are "
+                "'Active','Inactive' or 'False Positive'."
+            )
             self.logger.error(f"{validation_err_msg} {err_msg}")
             return ValidationResult(success=False, message=err_msg)
 
@@ -307,7 +312,10 @@ class AnomaliThreatstreamPlugin(PluginBase):
                 feed_id
             )
         ):
-            err_msg = "Invalid Feed ID provided. Feed ID should be a numeric comma separated values or single value."
+            err_msg = (
+                "Invalid Feed ID provided. Feed ID should be a numeric comma "
+                "separated values or single value."
+            )
             self.logger.error(f"{validation_err_msg} {err_msg}")
             return ValidationResult(
                 success=False,
@@ -349,10 +357,10 @@ class AnomaliThreatstreamPlugin(PluginBase):
             )
             self.logger.error(f"{validation_err_msg} {err_msg}")
             return ValidationResult(success=False, message=err_msg)
-        elif initial_range <= 0 or initial_range > 365:
+        elif initial_range <= 0 or initial_range > INTEGER_THRESHOLD:
             err_msg = (
                 "Invalid value for Initial Range (in days) provided. "
-                "Select a value between 1 - 365."
+                "Select a value between 1 to 2^62."
             )
             self.logger.error(f"{self.log_prefix}: {err_msg}")
             return ValidationResult(success=False, message=err_msg)
@@ -370,9 +378,12 @@ class AnomaliThreatstreamPlugin(PluginBase):
             ValidateResult object with success flag and message.
         """
         try:
-            base_url = configuration.get("base_url").strip().strip("/")
+            (
+                base_url, user_name, api_key
+            ) = self._get_credentials(configuration)
+
             query_params = {"limit": 1}
-            headers = self.get_headers(configuration)
+            headers = self.get_headers(user_name, api_key)
             self.anomali_threatstream_helper.api_helper(
                 logger_msg="validating authentication parameters",
                 url=f"{base_url}/api/v2/intelligence",
@@ -477,13 +488,8 @@ class AnomaliThreatstreamPlugin(PluginBase):
         Returns:
             bool: Whether the name is valid or not.
         """
-        if re.match(
-            r"^((?=[a-z0-9-]{1,63}\.)(xn--)?[a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,63}$",  # noqa
-            value,
-        ):
-            return True
-        else:
-            return False
+        regex = r"^((?=[a-z0-9-]{1,63}\.)(xn--)?[a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,63}$"  # noqa
+        return True if re.match(regex, value) else False
 
     def get_reputation(self, confidence) -> int:
         """
@@ -522,10 +528,8 @@ class AnomaliThreatstreamPlugin(PluginBase):
             except Exception as exp:
                 self.logger.error(
                     message=(
-                        "{}: Unexpected error occurred"
-                        " while creating tag {}. Error: {}".format(
-                            self.log_prefix_with_name, tag_name, exp
-                        )
+                        f"{self.log_prefix}: Unexpected error occurred while "
+                        f"creating tag {tag_name}. Error: {str(exp)}"
                     ),
                     details=str(traceback.format_exc()),
                 )
@@ -544,17 +548,17 @@ class AnomaliThreatstreamPlugin(PluginBase):
                 self.logger.info(
                     f"{self.log_prefix}: Pulling indicators from {PLATFORM_NAME}."
                 )
-                headers = self.get_headers(self.configuration)
+                is_config_modified = self._is_config_modified()
                 if hasattr(self, "sub_checkpoint"):
 
                     def wrapper(self):
-                        yield from self.get_indicators(headers)
+                        yield from self.get_indicators(is_config_modified)
 
                     return wrapper(self)
 
                 else:
                     indicators = []
-                    for batch in self.get_indicators(headers):
+                    for batch in self.get_indicators(is_config_modified):
                         indicators.extend(batch)
 
                     self.logger.info(
@@ -587,42 +591,57 @@ class AnomaliThreatstreamPlugin(PluginBase):
             )
             raise exp
 
-    def get_indicators(self, headers):
+    def get_indicators(
+        self, is_config_modified: bool
+    ) -> Union[Generator[Indicator, bool, None], Dict]:
         """
         Retrieves a list of indicators from the API.
 
         Args:
-            headers (dict): The headers to be used in the API request.
-
+            - is_config_modified (bool): A boolean flag indicating
+            configuration is modified or not.
         Returns:
-            list: A list of Indicator objects representing the retrieved indicators.
+            - Generator[Indicator, bool, None]: A Generator of Indicator objects
+            representing the retrieved indicators.
+            - Dict: A dictionary containing the checkpoint details.
 
         Raises:
-            AnomaliThreatstreamPluginException: If an error occurs while executing the pull cycle.
-            Exception: If an unexpected error occurs while executing the pull cycle.
+            AnomaliThreatstreamPluginException: If an error occurs while
+            executing the pull cycle.
+            Exception: If an unexpected error occurs while executing the
+            pull cycle.
         """
 
-        base_url = self.configuration.get("base_url").strip().strip("/")
+        (
+            base_url, user_name, api_key
+        ) = self._get_credentials(self.configuration)
         query_endpoint = f"{base_url}/api/v2/intelligence"
+        headers = self.get_headers(user_name, api_key)
 
         storage = self.storage if self.storage is not None else {}
 
         last_updated = storage.get("last_updated", "")
-        self.logger.debug(f"{self.log_prefix}: Pulling indicators. Storage: {storage}.")
 
         start_time = None
-        sub_checkpoint = getattr(self, "sub_checkpoint", None)
+        sub_checkpoint = getattr(self, "sub_checkpoint", {})
         if sub_checkpoint and sub_checkpoint.get("checkpoint"):
             start_time = sub_checkpoint.get("checkpoint")
-        elif not self.last_run_at:
-            start_time = datetime.now() - timedelta(days=self.configuration.get("days"))
-            start_time = start_time.strftime(DATE_FORMAT_FOR_IOCS)
         elif last_updated:
             start_time = last_updated
-        else:
-            start_time = self.last_run_at
+        elif self.last_run_at:
+            start_time = self.last_run_at.strftime(DATE_FORMAT_FOR_IOCS)
+
+        if is_config_modified or not start_time:
+            # If configuration is modified or start_time does not exists.
+            # Then prepare a new start_time.
+            initial_days = self.configuration.get("days")
+            start_time = datetime.now() - timedelta(days=initial_days)
             start_time = start_time.strftime(DATE_FORMAT_FOR_IOCS)
 
+        self.logger.info(
+            f"{self.log_prefix}: Pulling indicators from {PLATFORM_NAME}"
+            f" platform using checkpoint: {start_time}"
+        )
         query_params = {
             "modified_ts__gte": start_time,
             "update_id__gt": 0,
@@ -637,12 +656,13 @@ class AnomaliThreatstreamPlugin(PluginBase):
         confidence = self.configuration.get("confidence")
         status = self.configuration.get("status")
         severity = self.configuration.get("severity")
-        indicator_types = self.configuration.get("indicator_type")
-        i_types = [
+        indicator_types = self._get_indicator_types(
+            threat_types=self.configuration.get("indicator_type")
+        )
+        query_params["type"] = ",".join([
             "hash" if indicator_type in ["md5", "sha256"] else indicator_type
             for indicator_type in indicator_types
-        ]
-        query_params["type"] = ",".join(i_types)
+        ])
 
         if all(x in indicator_types for x in ("md5", "sha256")):
             query_params["hash$subtype"] = "MD5,SHA256"
@@ -657,10 +677,14 @@ class AnomaliThreatstreamPlugin(PluginBase):
             query_params["status"] = ",".join(status)
         if severity:
             query_params["severity"] = ",".join(severity)
-        if self.configuration.get("tags"):
-            query_params["tags"] = self.configuration.get("tags")
-        if self.configuration.get("feed_id"):
-            query_params["feed_id"] = self.configuration.get("feed_id")
+
+        tags = self.configuration.get("tags", "").strip()
+        if tags:
+            query_params["tags"] = tags
+
+        feeding_ids = self.configuration.get("feed_id", "").strip()
+        if feeding_ids:
+            query_params["feed_id"] = feeding_ids
 
         last_indicator = None
         next_page = True
@@ -671,18 +695,16 @@ class AnomaliThreatstreamPlugin(PluginBase):
                 total_skipped_tags = set()
                 page_count += 1
                 indicator_type_count = {
-                    "ip": 0,
-                    "ipv6": 0,
-                    "url": 0,
-                    "domain": 0,
-                    "md5": 0,
-                    "sha256": 0,
+                    indicator_type: 0 for indicator_type in indicator_types
                 }
                 current_page_skip_count = 0
                 current_extracted_indicators = []
 
+                logger_msg = (
+                    f"pulling data for page {page_count} from {PLATFORM_NAME}"
+                )
                 resp_json = self.anomali_threatstream_helper.api_helper(
-                    logger_msg=f"pulling data for page {page_count}",
+                    logger_msg=logger_msg,
                     url=query_endpoint,
                     method="GET",
                     headers=headers,
@@ -701,28 +723,30 @@ class AnomaliThreatstreamPlugin(PluginBase):
                         )
                         if tags_data:
                             for tag in tags_data:
-                                if tag.get("name", "") == "netskope-ce":
+                                if tag.get("name", "") == TAG_NAME:
                                     skip_indicator = True
                                     break
                         if not skip_indicator:
                             if self.configuration["enable_tagging"] == "No":
                                 tags_data = []
 
-                            if indicator.get("value") and indicator.get("type"):
+                            indicator_type = indicator.get("type", "")
+                            if indicator.get("value") and indicator_type:
                                 tags, skipped_tags = self.create_tags(tags_data)
                                 total_skipped_tags.update(skipped_tags)
 
                                 description = indicator.get("description")
-                                indicator_type = indicator.get("type")
                                 if (
                                     indicator_type == IndicatorType.MD5
                                     and indicator.get("subtype") == "SHA256"
                                 ):
+                                    # ToDo: This condition seems fishy
+                                    # Verify the logic by calling the anomali API.
                                     indicator_type = IndicatorType.SHA256
                                 current_extracted_indicators.append(
                                     Indicator(
-                                        value=indicator.get("value").lower(),
-                                        type=ANOMALI_TO_INTERNAL_TYPE.get(
+                                        value=indicator.get("value"),
+                                        type=indicator_types.get(
                                             indicator_type
                                         ),
                                         firstSeen=self.convert_into_date_time(
@@ -874,15 +898,19 @@ class AnomaliThreatstreamPlugin(PluginBase):
                 tags = indicator.tags if indicator.tags else []
                 if tags:
                     tags = [{"name": tag} for tag in tags]
-                tags.append({"name": "netskope-ce"})
+                tags.append({"name": TAG_NAME})
 
                 payload = {
                     "tags": tags,
-                    "severity": ANOMALI_SEVERITY_MAPPING.get(indicator.severity),
+                    "severity": ANOMALI_SEVERITY_MAPPING.get(
+                        indicator.severity
+                    ),
                     "confidence": indicator.reputation * 10,
                 }
 
-                if indicator.type == IndicatorType.URL:
+                if str(indicator.type.value) in {
+                    "url", "domain", "ipv4", "ipv6"
+                }:
                     try:
                         if self._validate_url(indicator.value, False):
                             payload["url"] = indicator.value
@@ -922,17 +950,19 @@ class AnomaliThreatstreamPlugin(PluginBase):
                 objects.append(payload)
 
             results = []
-            size_in_bytes = sys.getsizeof(json.dumps(objects))
+            size_in_bytes = getsizeof(json.dumps(objects))
             # Convert bytes to megabytes
-            size_in_mb = size_in_bytes / (1024.0**2)
+            size_in_mb = size_in_bytes / BYTES_TO_MB
             if size_in_mb > TARGET_SIZE_MB:
                 chunk_data = self.anomali_threatstream_helper.split_into_size(objects)
                 results.extend(chunk_data)
             else:
                 results.append(objects)
 
-            headers = self.get_headers(self.configuration)
-            base_url = self.configuration.get("base_url").strip().strip("/")
+            (
+                base_url, user_name, api_key
+            ) = self._get_credentials(self.configuration)
+            headers = self.get_headers(user_name, api_key)
             final_payload = {
                 "meta": {
                     "classification": "private",
@@ -948,8 +978,12 @@ class AnomaliThreatstreamPlugin(PluginBase):
                 page_count += 1
                 final_payload["objects"] = result
                 try:
+                    logger_msg = (
+                        f"pushing indicators to {self.plugin_name} "
+                        f"for page {page_count}"
+                    )
                     self.anomali_threatstream_helper.api_helper(
-                        logger_msg=f"pushing indicators to {self.plugin_name} for page {page_count}",
+                        logger_msg=logger_msg,
                         url=f"{base_url}/api/v2/intelligence/",
                         method="PATCH",
                         data=json.dumps(final_payload),
@@ -988,7 +1022,7 @@ class AnomaliThreatstreamPlugin(PluginBase):
         return [ActionWithoutParams(label="Share Indicators", value="share_ioc")]
 
     def validate_action(self, action: Action) -> ValidationResult:
-        """Validate crowdstrike configuration.
+        """Validate Anomali configuration.
 
         Args:
             action (Action): Action to perform on IoCs.
@@ -1278,3 +1312,104 @@ class AnomaliThreatstreamPlugin(PluginBase):
                     ),
                 },
             ]
+
+    def _get_credentials(self, configuration) -> Tuple[str, str, str]:
+        """Get API Credentials.
+        Args:
+            - configuration (Dict): Configuration Dictionary.
+        Returns:
+            - Tuple: Tuple containing Base URL, Username, API Key.
+        """
+        base_url = configuration.get("base_url", "").strip().strip("/")
+        user_name = configuration.get("username", "").strip()
+        api_key = configuration.get("api_key")
+        return base_url, user_name, api_key
+
+    def _get_indicator_types(self, threat_types: List) -> Dict:
+        """Returns a mapping of Indicator Types, Based on the threat types to
+        pull configuration parameter And, Depending on Neskope CE Version.
+
+        Args:
+            - threat_types: A list of threat types to pull.
+        Returns:
+            - Dictionary mapping of Indicator Types to Netskope CE Supported
+            Indicator Types.
+        """
+        indicator_types = {}
+
+        if "md5" in threat_types:
+            indicator_types["md5"] = IndicatorType.MD5
+
+        if "sha256" in threat_types:
+            indicator_types["sha256"] = IndicatorType.SHA256
+
+        if "url" in threat_types:
+            indicator_types["url"] = IndicatorType.URL
+
+        if "domain" in threat_types:
+            indicator_types["domain"] = getattr(
+                IndicatorType, "DOMAIN", IndicatorType.URL
+            )
+
+        if "ip" in threat_types:
+            indicator_types["ip"] = getattr(
+                IndicatorType, "IPV4", IndicatorType.URL
+            )
+
+        if "ipv6" in threat_types:
+            indicator_types["ipv6"] = getattr(
+                IndicatorType, "IPV6", IndicatorType.URL
+            )
+        return indicator_types
+
+    def _create_configuration_digest(self, configuration) -> str:
+        """Create a MD5 Digest of configurations.
+
+        Args:
+            - configuration (Dict): A dictionary containing configuration parameters.
+
+        Returns:
+            - A string representation of MD5 hexdigest of configuration.
+        """
+        (
+            base_url, user_name, api_key
+        ) = self._get_credentials(configuration)
+
+        config = {
+            "base_url": base_url,
+            "user_name": user_name,
+            "api_key": api_key,
+            "indicator_type": configuration.get("indicator_type", []),
+            "severity": configuration.get("severity", ""),
+            "status": configuration.get("status", "")
+        }
+        return hashlib.md5(
+            json.dumps(config, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+
+    def _is_config_modified(self) -> bool:
+        """This method is used to determine wether configuration
+        is modified or not.
+
+        Returns:
+            - Returns bool flag. True or False
+        """
+        # Create current configuration digest
+        current_config_digest = self._create_configuration_digest(
+            self.configuration
+        )
+
+        # Fetch previous configuration digest from storage
+        config_digest = self.storage.get("config_digest")
+        if not config_digest:
+            # If config digest not present,
+            # then update storage with current digest.
+            self.storage["config_digest"] = current_config_digest
+
+        # Set is_config_modified flag
+        is_config_modified = bool(current_config_digest == config_digest)
+        if is_config_modified:
+            # if config is modified, set new config digest in storage.
+            self.storage["config_digest"] = current_config_digest
+
+        return is_config_modified
