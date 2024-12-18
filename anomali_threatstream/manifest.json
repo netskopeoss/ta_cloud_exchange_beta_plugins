@@ -1,9 +1,13 @@
 {
     "name": "Anomali ThreatStream XDR",
     "id": "anomali_threatstream",
-    "version": "1.2.0-beta",
+    "version": "1.3.0-beta",
     "description": "The Anomali ThreatStream XDR plugin is used to fetch the indicators of type URL, IP (IPv4), Domain, IPv6, SHA256 and MD5 from the Observables on Anomali ThreatStream (XDR). This plugin supports sharing MD5, SHA256, URL, Domain, IPv4 and IPv6 to Observables on the Anomali ThreatStream (XDR) platform using the Share Indicators action.",
     "patch_supported": true,
+    "push_supported": true,
+    "fetch_retraction_info": true,
+    "delete_supported": false,
+    "module": "CTE",
     "configuration": [
         {
             "label": "Base URL",
@@ -11,7 +15,7 @@
             "type": "text",
             "default": "",
             "mandatory": true,
-            "description": "ThreatStream API Base URL based on cloud or OnPrem setup."
+            "description": "Anomali ThreatStream XDR API Base URL based on cloud or On-Prem setup."
         },
         {
             "label": "Username",
@@ -19,7 +23,7 @@
             "type": "text",
             "default": "",
             "mandatory": true,
-            "description": "The Username associated with the ThreatStream account."
+            "description": "The Username associated with the Anomali ThreatStream XDR account."
         },
         {
             "label": "API Key",
@@ -30,7 +34,7 @@
             "description": "Provide the API Key from 'Settings > My Profile > API Key' on the Anomali ThreatStream XDR platform."
         },
         {
-            "label": "Remote observables",
+            "label": "Remote Observables",
             "key": "remote_observables",
             "type": "choice",
             "choices": [
@@ -159,7 +163,7 @@
             "type": "text",
             "default": "",
             "mandatory": false,
-            "description": "Only indicators with matching Tags will be fetched. Add multiple Tags separated by commas."
+            "description": "Only indicators with matching Tags will be fetched. Add multiple Tags separated by commas. Example: tag1,tag2,tag3. Keep blank to fetch indicators from all Tags."
         },
         {
             "label": "Feed ID",
@@ -167,7 +171,7 @@
             "type": "text",
             "default": "",
             "mandatory": false,
-            "description": "Only indicators with matching Feed ID will be fetched. Add one or more numeric Feed IDs, separated by commas."
+            "description": "Only indicators with matching Feed ID will be fetched. Add one or more numeric Feed IDs, separated by commas. Example: 1,2,3. Keep blank to fetch indicators from all Feeds."
         },
         {
             "label": "Enable Polling",
@@ -185,7 +189,7 @@
             ],
             "default": "Yes",
             "mandatory": true,
-            "description": "Enable/Disable polling data from Anomali. Disable if you only need to push indicators to Anomali."
+            "description": "Enable/Disable polling data from Anomali ThreatStream XDR. Disable if you only need to push indicators to Anomali ThreatStream XDR."
         },
         {
             "label": "Enable Tagging",
@@ -204,6 +208,13 @@
             "default": "No",
             "mandatory": true,
             "description": "Enable/Disable tagging functionality."
+        },
+        {
+            "label": "Retraction Interval (in days)",
+            "key": "retraction_interval",
+            "type": "number",
+            "mandatory": false,
+            "description": "Specify the number of days for which IoC retraction should be run for Anomali ThreatStream XDR indicators. Note: This parameter is applicable only for Netskope CE version 5.1.0 or later, and if \"IoC(s) Retraction\" is enabled in Threat Exchange Settings."
         },
         {
             "label": "Initial Range (in days)",
