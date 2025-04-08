@@ -1,3 +1,7 @@
+# 2.3.0-beta
+## Fixed
+- Bug Fixes and socket connection handling.
+
 # 2.2.0
 ## Added
 - Added support for the endpoint event type. To pull and ingest this event type update your CE version to 5.1.0.
