@@ -136,7 +136,7 @@ class ElasticPlugin(PluginBase):
             )
             raise ElasticPluginException(err_msg)
         finally:
-            elastic_client.close()
+            elastic_client.close(is_validation=True)
 
     def validate(self, configuration: Dict) -> ValidationResult:
         """Validate the configuration parameters dict.
@@ -257,9 +257,10 @@ class ElasticPlugin(PluginBase):
             for i in range(0, len(transformed_data), BATCH_SIZE):
                 try:
                     batch = transformed_data[i : i + BATCH_SIZE]  # noqa
-                    payload = "\n".join(
-                        [json.dumps(event) for event in batch if event]
-                    )
+                    payload = [
+                        json.dumps(event) + "\n" for event in batch if event
+                    ]
+                    payload = "".join(payload)
                     elastic_client.push_data(payload)
                     successful_log_push_counter += len(batch)
                 except Exception as err:
