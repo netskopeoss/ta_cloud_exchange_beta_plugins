@@ -1,1 +1,0 @@
-"""HarfangLab Plugin Package."""

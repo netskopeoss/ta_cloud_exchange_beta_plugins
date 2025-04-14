@@ -1,1 +1,0 @@
-"""CyberArk URE Plugin"""

@@ -1,1 +1,0 @@
-"""LogRhythm plugin."""
