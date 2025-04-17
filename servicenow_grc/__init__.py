@@ -1,1 +1,0 @@
-"""ServiceNow Plugin Package."""

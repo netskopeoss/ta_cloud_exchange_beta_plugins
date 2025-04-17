@@ -1,1 +1,0 @@
-"""AWS GuardDuty CTE Plugin."""

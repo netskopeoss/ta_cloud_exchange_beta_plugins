@@ -1,1 +1,0 @@
-"""Amazon Security Lake Plugin."""

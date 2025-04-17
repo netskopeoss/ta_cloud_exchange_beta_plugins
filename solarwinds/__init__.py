@@ -1,1 +1,0 @@
-"""SolarWinds plugin."""

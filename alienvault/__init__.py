@@ -1,1 +1,0 @@
-"""AlienVault plugin."""

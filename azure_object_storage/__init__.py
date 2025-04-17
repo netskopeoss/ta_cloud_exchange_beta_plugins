@@ -1,1 +1,0 @@
-"""Azure Object Storage plugin."""

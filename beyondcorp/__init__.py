@@ -1,1 +1,0 @@
-"""BeyondCorp plugin package."""

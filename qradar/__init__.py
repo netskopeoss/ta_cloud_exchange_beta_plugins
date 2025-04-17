@@ -1,1 +1,0 @@
-"""QRadar plugin."""

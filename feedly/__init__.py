@@ -1,1 +1,0 @@
-"""CTE Feedly Plugin"""
