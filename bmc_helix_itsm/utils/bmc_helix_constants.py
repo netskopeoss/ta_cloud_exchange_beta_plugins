@@ -34,38 +34,64 @@ BMC Helix ITSM Constants."""
 
 PLATFORM_NAME = "BMC Helix ITSM"
 MODULE_NAME = "CTO"
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "2.0.0-beta"
 MAX_RETRIES = 4
 DEFAULT_WAIT_TIME = 60
-RETRY_SLEEP_TIME = 50
-MAX_PAGE_SIZE = 1000
-PAGE_LIMIT = 100
-DATE_FORMAT_FOR_IOCS = "%Y-%m-%dT%H:%M:%S.%f%z"
+INCIDENT_PAGE_SIZE = 250
+GROUPS_PAGE_SIZE = 500
 
 LOGIN_URL = "api/jwt/login"
 TASK_URL = "api/arsys/v1/entry/HPD:IncidentInterface_Create"
-GET_TASK_URL = "api/arsys/v1/entry/HPD:IncidentInterface"
+GET_TASK_URL = "api/arsys/v1/entry/HPD:IncidentInterface_Create"
+INCIDENT_FIELDS_URL = "api/arsys/v1.0/fields/HPD:IncidentInterface_Create"
+LIST_GROUPS_URL = "api/arsys/v1/entry/CTM:Support Group"
 
-INCIDENT_SERVICE_TYPE_MAPPING = {
-    "user_service_restoration": "User Service Restoration",
-    "user_service_request": "User Service Request",
-    "infrastructure_restoration": "Infrastructure Restoration",
-    "infrastructure_event": "Infrastructure Event",
-    "security_incident": "Security Incident",
+UPDATE_FIELDS_LIST = []
+INCIDENT_REQUIRED_FIELDS_VALUES = {
+   "Status": [
+      "New",
+      "Assigned",
+      "In Progress",
+      "Pending",
+      "Resolved",
+      "Closed",
+      "Cancelled"
+   ],
+   "Impact": [
+      "1-Extensive/Widespread",
+      "2-Significant/Large",
+      "3-Moderate/Limited",
+      "4-Minor/Localized"
+   ],
+   "Urgency": [
+      "1-Critical",
+      "2-High",
+      "3-Medium",
+      "4-Low"
+   ],
+   "Service_Type": [
+      "User Service Restoration",
+      "User Service Request",
+      "Infrastructure Restoration",
+      "Infrastructure Event",
+      "Security Incident"
+   ],
+   "Reported Source": [
+      "Email",
+      "Chat",
+      "Web",
+      "BMC Impact Manager Event",
+      "External Escalation",
+      "Walk In",
+      "Phone",
+      "Direct Input",
+      "Other",
+      "Systems Management",
+      "Self Service",
+      "Fax",
+      "Voice Mail"
+   ],
+   "First_Name": [],
+   "Last_Name": [],
+   "Description": [],
 }
-INCIDENT_TYPES = list(INCIDENT_SERVICE_TYPE_MAPPING.keys())
-URGENCY_MAPPING = {
-    "critical": "1-Critical",
-    "high": "2-High",
-    "medium": "3-Medium",
-    "low": "4-Low"
-}
-URGENCY = list(URGENCY_MAPPING.keys())
-
-IMPACT_MAPPING = {
-    "extensive": "1-Extensive/Widespread",
-    "significant": "2-Significant/Large",
-    "moderate": "3-Moderate/Limited",
-    "minor": "4-Minor/Localized"
-}
-IMPACT = list(IMPACT_MAPPING.keys())
