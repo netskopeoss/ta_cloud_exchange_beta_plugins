@@ -1,4 +1,8 @@
-# 2.1.0-beta
+# 2.1.1-beta
+## Fixed
+- Bug fixes.
+
+# 2.1.0
 ## Changed
 - Changed deprecated API '/rest/api/3/search' with new API '/rest/api/3/search/jql'.
 ## Fixed

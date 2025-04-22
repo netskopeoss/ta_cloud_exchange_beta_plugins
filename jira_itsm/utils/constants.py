@@ -33,7 +33,7 @@ CTO Jira Plugin constants.
 """
 MODULE_NAME = "CTO"
 PLATFORM_NAME = "Jira"
-PLUGIN_VERSION = "2.1.0-beta"
+PLUGIN_VERSION = "2.1.1-beta"
 DEFAULT_WAIT_TIME = 60
 MAX_API_CALLS = 4
 LIMIT = 50
