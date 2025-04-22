@@ -194,9 +194,9 @@ class JiraPlugin(PluginBase):
             email=email_address, api_token=api_token
         )
 
-        params = {"startAt": start_at, "maxResults": LIMIT, "expand": "issueTypes"}
         while not is_last:
             try:
+                params = {"startAt": start_at, "maxResults": LIMIT, "expand": "issueTypes"}
                 response = self.jira_helper.api_helper(
                     url=endpoint,
                     method="GET",
