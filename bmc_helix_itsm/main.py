@@ -774,8 +774,8 @@ class BMCHelixPlugin(PluginBase):
             status = getattr(alert, "rawData").get(
                 "status", TaskStatus.OTHER
             )
-            if "restapi" in endpoint:
-                incident_link = endpoint.replace("restapi", "smartit")
+            if "restapi" in base_url:
+                incident_link = base_url.replace("restapi", "smartit")
             task = Task(
                 id=incident_number,
                 status=(
