@@ -1,6 +1,3 @@
 import sys
 
-from importlib.metadata import version
-
-
-__version__ = version("kafka-python-ng")
+__version__ = "2.2.3"
