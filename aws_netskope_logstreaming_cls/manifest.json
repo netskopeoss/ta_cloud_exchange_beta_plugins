@@ -1,0 +1,60 @@
+{
+    "name": "AWS Netskope LogStreaming",
+    "id": "aws_netskope_logstreaming_cls",
+    "netskope": true,
+    "version": "1.0.0-beta",
+    "module": "CLS",
+    "minimum_version": "5.1.1",
+    "minimum_provider_version": "1.0.0",
+    "provider_id": "aws_netskope_logstreaming_tenant",
+    "patch_supported": true,
+    "types": [
+        "events"
+    ],
+    "mapping": "",
+    "description": "This plugin is used to fetch the Netskope Alerts (DLP, Malware, Policy, Compromised Credential, Malsite, Quarantine, Remediation, Security Assessment, Watchlist, UBA, CTEP, Device, and Content), Events (Page, Application, Audit, Infrastructure, Network, Incident and Client Status) and WebTx logs from AWS SQS queue enabled S3 Bucket.",
+    "supported_subtypes": {
+        "events": [
+            "NLS Application",
+            "NLS Audit",
+            "NLS Infrastructure",
+            "NLS Page",
+            "NLS Network",
+            "NLS Incident",
+            "NLS Clientstatus",
+            "NLS DLP",
+            "NLS Malware",
+            "NLS Policy",
+            "NLS Compromised Credential",
+            "NLS Malsite",
+            "NLS Quarantine",
+            "NLS Remediation",
+            "NLS Security Assessment",
+            "NLS Watchlist",
+            "NLS UBA",
+            "NLS CTEP",
+            "NLS Content",
+            "NLS Device",
+            "NLS WebTx",
+            "NLS EPDLP"
+        ]
+    },
+    "configuration": [
+        {
+            "label": "Initial Range for Events (in hours)",
+            "key": "hours",
+            "type": "number",
+            "mandatory": true,
+            "default": 0,
+            "description": "Number of hours to pull the event data for the initial run. Note: As this plugin does not support historical pulling hence keep it as 0."
+        },
+        {
+            "label":"Initial Range for Alerts (in days)",
+            "key":"days",
+            "type":"number",
+            "mandatory":true,
+            "default": 0,
+            "description":"Number of days to pull the data for the initial run. Note: As this plugin does not support historical pulling hence keep it as 0."
+        }
+    ]
+}
