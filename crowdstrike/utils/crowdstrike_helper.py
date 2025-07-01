@@ -47,6 +47,7 @@ from .crowdstrike_constants import (
     MODULE_NAME,
     PLATFORM_NAME,
     PLUGIN_NAME,
+    RETRACTION,
 )
 
 
@@ -124,6 +125,8 @@ class CrowdStrikePluginHelper(object):
         is_handle_error_required=True,
         is_validation=False,
         regenerate_auth_token=True,
+        is_retraction: bool = False,
+        show_params: bool = True,
     ):
         """API Helper perform API request to ThirdParty platform
         and captures all the possible errors for requests.
@@ -151,13 +154,15 @@ class CrowdStrikePluginHelper(object):
             is_handle_error_required is True otherwise returns Response object.
         """
         try:
+            if is_retraction and RETRACTION not in self.log_prefix:
+                self.log_prefix = self.log_prefix + f" [{RETRACTION}] "
             headers = self._add_user_agent(headers)
 
             debug_log_msg = (
-                f"{self.log_prefix} : API Request for {logger_msg}."
+                f"{self.log_prefix}: API Request for {logger_msg}."
                 f" Endpoint: {method} {url}"
             )
-            if params:
+            if params and show_params:
                 debug_log_msg += f", params: {params}."
 
             self.logger.debug(debug_log_msg)
@@ -175,7 +180,7 @@ class CrowdStrikePluginHelper(object):
                 )
                 status_code = response.status_code
                 self.logger.debug(
-                    f"{self.log_prefix} : Received API Response for "
+                    f"{self.log_prefix}: Received API Response for "
                     f"{logger_msg}. Status Code={status_code}."
                 )
                 if (
@@ -187,7 +192,10 @@ class CrowdStrikePluginHelper(object):
                         configuration=configuration
                     )
                     auth_header = self.get_auth_header(
-                        client_id, client_secret, base_url
+                        client_id,
+                        client_secret,
+                        base_url,
+                        is_retraction=is_retraction,
                     )
                     headers.update(auth_header)
                     return self.api_helper(
@@ -202,10 +210,14 @@ class CrowdStrikePluginHelper(object):
                         is_validation=is_validation,
                         logger_msg=logger_msg,
                         regenerate_auth_token=False,
+                        is_retraction=is_retraction,
                     )
 
                 elif status_code == 429 and not is_validation:
-                    resp_json = self.parse_response(response=response)
+                    resp_json = self.parse_response(
+                        response=response,
+                        logger_msg=logger_msg
+                    )
                     api_err_msg = str(
                         resp_json.get(
                             "errors",
@@ -263,7 +275,10 @@ class CrowdStrikePluginHelper(object):
                     )
                     time.sleep(diff_retry_after)
                 elif (500 <= status_code <= 600) and not is_validation:
-                    resp_json = self.parse_response(response=response)
+                    resp_json = self.parse_response(
+                        response=response,
+                        logger_msg=logger_msg
+                    )
                     api_err_msg = str(
                         resp_json.get(
                             "errors",
@@ -303,6 +318,22 @@ class CrowdStrikePluginHelper(object):
                     )
         except CrowdstrikePluginException:
             raise
+        except requests.exceptions.ReadTimeout as error:
+            err_msg = (
+                f"Read Timeout error occurred while {logger_msg}."
+                f"Verify if the platform UI is up and running."
+            )
+            if is_validation:
+                err_msg = (
+                    "Unable to reach CrowdStrike APIs. "
+                    "Verify if the platform UI is up and running."
+                )
+
+            self.logger.error(
+                message=f"{self.log_prefix}: {err_msg} Error: {error}",
+                details=traceback.format_exc(),
+            )
+            raise CrowdstrikePluginException(err_msg)
         except requests.exceptions.ProxyError as error:
             err_msg = (
                 f"Proxy error occurred while {logger_msg}. Verify the"
@@ -370,7 +401,10 @@ class CrowdStrikePluginHelper(object):
             raise CrowdstrikePluginException(err_msg)
 
     def parse_response(
-        self, response: requests.models.Response, is_validation: bool = False
+        self,
+        response: requests.models.Response,
+        is_validation: bool = False,
+        logger_msg: str = None,
     ):
         """Parse Response will return JSON from response object.
 
@@ -384,7 +418,8 @@ class CrowdStrikePluginHelper(object):
             return response.json()
         except json.JSONDecodeError as err:
             err_msg = (
-                f"Invalid JSON response received from API. Error: {str(err)}"
+                f"Invalid JSON response received from API while "
+                f"{logger_msg}. Error: {str(err)}"
             )
             self.logger.error(
                 message=f"{self.log_prefix}: {err_msg}",
@@ -399,7 +434,7 @@ class CrowdStrikePluginHelper(object):
         except Exception as exp:
             err_msg = (
                 "Unexpected error occurred while parsing"
-                f" json response. Error: {exp}"
+                f" json response for {logger_msg}. Error: {exp}"
             )
             self.logger.error(
                 message=f"{self.log_prefix}: {err_msg}",
@@ -464,7 +499,9 @@ class CrowdStrikePluginHelper(object):
 
         if status_code in [200, 201]:
             return self.parse_response(
-                response=resp, is_validation=is_validation
+                response=resp,
+                is_validation=is_validation,
+                logger_msg=logger_msg
             )
         elif status_code == 204:
             return {}
@@ -506,6 +543,7 @@ class CrowdStrikePluginHelper(object):
         client_secret,
         base_url,
         is_validation=False,
+        is_retraction=False,
     ):
         """Get the OAUTH2 Json object with access token from CrowdStrike
         platform.
@@ -514,28 +552,36 @@ class CrowdStrikePluginHelper(object):
             client_id (str): Client ID required to generate OAUTH2 token.
             client_secret (str): Client Secret required to generate OAUTH2
             token.
-            base_url (str): Base URL of crowdstrike.
+            base_url (str): Base URL of CrowdStrike.
             is_validation (bool): Is this a validation call?
+            is_retraction (bool): Is this a retraction call?
         Returns:
             json: JSON response data in case of Success.
         """
+        if is_retraction and RETRACTION not in self.log_prefix:
+            self.log_prefix = self.log_prefix + f" [{RETRACTION}]"
         auth_endpoint = f"{base_url}/oauth2/token"
         auth_params = {
             "grant_type": "client_credentials",
             "client_id": client_id,
             "client_secret": client_secret,
         }
+        logger_msg = f"getting auth token from {PLUGIN_NAME}"
         try:
             response = self.api_helper(
                 method="POST",
                 url=auth_endpoint,
                 data=auth_params,
-                logger_msg=f"getting auth token from {PLUGIN_NAME}",
+                logger_msg=logger_msg,
                 is_handle_error_required=False,
                 is_validation=is_validation,
             )
             if response.status_code in [200, 201]:
-                resp_json = self.parse_response(response, is_validation)
+                resp_json = self.parse_response(
+                    response=response,
+                    is_validation=is_validation,
+                    logger_msg=logger_msg
+                )
                 # Check if auth JSON is valid or not.
                 return self.check_auth_json(resp_json)
             else:
