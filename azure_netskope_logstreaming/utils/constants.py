@@ -35,7 +35,7 @@ Azure Netskope LogStreaming constants.
 # from netskope_api.iterator.const import Const
 
 MODULE_NAME = "CLS"
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "1.0.0-beta"
 PLATFORM_NAME = "Microsoft Azure"
 PLUGIN_NAME = "Azure Netskope LogStreaming"
 MAINTENANCE_PULL = "maintenance pulling"
