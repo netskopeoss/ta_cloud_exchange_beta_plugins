@@ -1,0 +1,101 @@
+{
+    "name": "Manage Engine Service Desk Plus",
+    "description": "This plugin is used to create tasks for selected Service Desk Plus projects on the Service Desk Plus Platform. It also supports updating tasks and syncing their status. This plugin supports both Cloud and On Premise deployment types.",
+    "id": "manage_engine_service_desk_plus",
+    "pulling_supported": false,
+    "receiving_supported": true,
+    "version": "1.0.0-beta",
+    "module": "CTO",
+    "minimum_version": "5.1.2",
+    "configuration": [
+        {
+            "label": "Service Desk Plus Deployment Type",
+            "name": "sdp_deployment_type",
+            "type": "step",
+            "fields": [
+                {
+                    "label": "Deployment Type",
+                    "key": "deployment_type",
+                    "type": "choice",
+                    "choices": [
+                        {
+                            "key": "Cloud",
+                            "value": "cloud"
+                        },
+                        {
+                            "key": "On Premise",
+                            "value": "onpremise"
+                        }
+                    ],
+                    "mandatory": true,
+                    "default": "cloud"
+                }
+            ]
+        },
+        {
+            "label": "Authentication",
+            "name": "auth",
+            "type": "dynamic_step"
+        },
+        {
+            "label": "Mapping Configurations",
+            "name": "mapping_config",
+            "type": "step",
+            "fields": [
+                {
+                    "label": "Status Mapping",
+                    "key": "status_mapping",
+                    "type": "mapping_table",
+                    "value_type": "text",
+                    "destination_label": "Service Desk Status",
+                    "fields": [
+                        {
+                            "label": "New",
+                            "value": "new",
+                            "multi": false,
+                            "mandatory": false
+                        },
+                        {
+                            "label": "In Progress",
+                            "value": "in_progress",
+                            "multi": false,
+                            "mandatory": false
+                        },
+                        {
+                            "label": "On Hold",
+                            "value": "on_hold",
+                            "multi": false,
+                            "mandatory": false
+                        },
+                        {
+                            "label": "Closed",
+                            "value": "closed",
+                            "multi": false,
+                            "mandatory": false
+                        },
+                        {
+                            "label": "Deleted",
+                            "value": "deleted",
+                            "multi": false,
+                            "mandatory": false
+                        },
+                        {
+                            "label": "Other",
+                            "value": "other",
+                            "multi": false,
+                            "mandatory": false
+                        }
+                    ],
+                    "mandatory": false,
+                    "default": {
+                        "new": "Open",
+                        "on_hold": "On Hold",
+                        "in_progress": "In Progress",
+                        "closed": "Closed"
+                    },
+                    "description": "Status Mapping will be used to map the task status from Cloud Exchange to the Service Desk Plus task status. This mapping will also be used to transform the status while creating the task on Service Desk Plus platform."
+                }
+            ]
+        }
+    ]
+}
