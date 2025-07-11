@@ -4,9 +4,9 @@
   "id": "jira_itsm",
   "pulling_supported": false,
   "receiving_supported": true,
-  "version": "2.1.1-beta",
+  "version": "2.2.0-beta",
   "module": "CTO",
-  "minimum_version": "5.1.0",
+  "minimum_version": "5.1.2",
   "configuration": [
     {
       "label": "Authentication",

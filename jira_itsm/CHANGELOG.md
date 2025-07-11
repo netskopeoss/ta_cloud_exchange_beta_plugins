@@ -1,4 +1,8 @@
-# 2.1.1-beta
+# 2.2.0-beta
+## Added
+- Added support for mapping assignee with email.
+
+# 2.1.1
 ## Fixed
 - Bug fixes.
 
