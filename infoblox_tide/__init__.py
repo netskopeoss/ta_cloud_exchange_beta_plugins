@@ -1,1 +1,1 @@
-"""CTE Infoblox TIDE Plugin Package."""
+"""CTE Infoblox Plugin Package."""

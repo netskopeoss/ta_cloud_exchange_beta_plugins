@@ -34,19 +34,69 @@ CTE Infoblox Plugin constants.
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 MODULE_NAME = "CTE"
-PLATFORM_NAME = "Infoblox TIDE"
-PLUGIN_VERSION = "1.0.0-beta"
+PLATFORM_NAME = "Infoblox"
+PLUGIN_VERSION = "2.0.0-beta"
 DEFAULT_WAIT_TIME = 60
 MAX_API_CALLS = 4
 RETRACTION = "Retraction"
 DEFAULT_SLEEP_TIME = 60
-INDICATOR_TYPES = ["hash", "host", "ipv4", "ipv6", "url"]
+INDICATOR_TYPES = {
+    "Domain": "domain",
+    "Hash": "hash",
+    "Host": "host",
+    "IPv4": "ipv4",
+    "IPv6": "ipv6",
+    "URL": "url",
+}
 HASH_TYPES = ["sha256", "md5"]
 IP_TYPES = ["ipv4", "ipv6"]
 DEFAULT_SLEEP_TIME = 60
 INTEGER_THRESHOLD = 4611686018427387904
 MAX_API_CALLS = 4
-TIME_PAGINATION_INTERVAL = 24  # 24 hours
+TIME_PAGINATION_INTERVAL_1_DAY = 24  # 24 hours
+TIME_PAGINATION_INTERVAL_1_HOUR = 1  # 1 hour
 IOC_UI_ENDPOINT = "{base_url}/#/security_research/search/auto/{value}/summary"
 DEFAULT_PUSH_BATCH = 100000
-DEFAULT_PULL_LIMIT = 100000
+ACTIVE_INDICATORS_RESPONSE_LIMIT = 50000
+SOC_INSIGHTS_PULL_LIMIT = 10000
+ACTIVE_INDICATORS = "Active Indicators"
+LOOKALIKE_DOMAINS = "Lookalike Domains"
+SOC_INSIGHTS = "SOC Insights"
+PULL = "pull"
+PUSH = "push"
+INDICATOR_SOURCE_PAGES = {
+    ACTIVE_INDICATORS: "active_indicators",
+    LOOKALIKE_DOMAINS: "lookalike_domains",
+    SOC_INSIGHTS: "soc_insights",
+}
+SOC_INSIGHT_IOC_ACTION_TYPES = {
+    "Blocked": "blocked",
+    "Not Blocked": "not blocked",
+}
+CONFIGURATION_BOOLEAN_VALUES = {"Yes": "yes", "No": "no"}
+INFOBLOX_LOOKALIKE_DOMAINS_PULL_LIMIT = 1000
+BASE_PULL_LOGGER_MESSAGE = (
+    " {fetch_type} for page {page_number} from"
+    " {indicator_source_page} page of {platform_name} server"
+)
+IOC_TYPE_REGEX = {
+    "domain": r"^((?=[a-z0-9-]{1,63}\.)(xn--)?[a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,63}$",
+    "hostname": r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+    "fqdn": r"^(?=.{1,255}$)(?:(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.)+(?:[A-Za-z]{2,})\.?$",
+    "sha256": r"^[a-fA-F0-9]{64}$",
+    "md5": r"^[a-fA-F0-9]{32}$",
+}
+INFOBLOX_PAGE_TO_SERVICE_MAPPING = {
+    ACTIVE_INDICATORS: "TIDE",
+    LOOKALIKE_DOMAINS: "Lookalike Domains",
+    SOC_INSIGHTS: "SOC Insights",
+}
+FETCH_PROPERTIES_ENDPOINT = "{base_url}/tide/api/data/properties"
+DATA_PROFILES_ENDPOINT = "{base_url}/tide/admin/v1/resources/dataprofiles"
+FETCH_ACTIVE_INDICATORS_ENDPOINT = "{base_url}/tide/api/data/threats"
+FETCH_LOOKALIKE_DOMAINS_ENDPOINT = "{base_url}/api/tdlad/v1/lookalike_domains"
+FETCH_INSIGHTS_ENDPOINT = "{base_url}/api/v1/insights"
+FETCH_INSIGHTS_INDICATORS_ENDPOINT = (
+    "{base_url}/api/v1/insights/{insight_id}/indicators"
+)
+PUSH_ACTIVE_INDICATORS_ENDPOINT = "{base_url}/tide/api/data/batches"

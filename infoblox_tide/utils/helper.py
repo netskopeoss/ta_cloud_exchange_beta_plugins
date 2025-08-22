@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 CTE Infoblox Plugin constants.
 """
 
+import hashlib
 import json
 import time
 import traceback
@@ -49,14 +50,14 @@ from .constants import (
 )
 
 
-class InfobloxTIDEPluginException(Exception):
-    """Infoblox TIDE plugin custom exception class."""
+class InfobloxPluginException(Exception):
+    """Infoblox plugin custom exception class."""
 
     pass
 
 
-class InfobloxTIDEPluginHelper:
-    """Infoblox TIDE plugin helper module."""
+class InfobloxPluginHelper:
+    """Infoblox plugin helper module."""
 
     def __init__(
         self,
@@ -65,7 +66,7 @@ class InfobloxTIDEPluginHelper:
         plugin_name: str,
         plugin_version: str,
     ):
-        """Infoblox TIDE Plugin Helper initializer.
+        """Infoblox Plugin Helper initializer.
 
         Args:
             logger (logger object): Logger object.
@@ -183,7 +184,7 @@ class InfobloxTIDEPluginHelper:
                             message=f"{self.log_prefix}: {error_msg}",
                             details=f"API response: {response.text}",
                         )
-                        raise InfobloxTIDEPluginException(error_msg)
+                        raise InfobloxPluginException(error_msg)
                     self.logger.error(
                         message=(
                             f"{self.log_prefix}: Received exit code"
@@ -206,7 +207,7 @@ class InfobloxTIDEPluginHelper:
                         if is_handle_error_required
                         else response
                     )
-        except InfobloxTIDEPluginException:
+        except InfobloxPluginException:
             raise
         except requests.exceptions.ReadTimeout as error:
             err_msg = (
@@ -225,7 +226,7 @@ class InfobloxTIDEPluginHelper:
                 message=f"{self.log_prefix}: {err_msg} Error: {error}",
                 details=traceback.format_exc(),
             )
-            raise InfobloxTIDEPluginException(err_msg)
+            raise InfobloxPluginException(err_msg)
         except requests.exceptions.ProxyError as error:
             err_msg = (
                 f"Proxy error occurred while {logger_msg} when trying "
@@ -243,7 +244,7 @@ class InfobloxTIDEPluginHelper:
                 message=f"{self.log_prefix}: {err_msg} Error: {error}",
                 details=traceback.format_exc(),
             )
-            raise InfobloxTIDEPluginException(err_msg)
+            raise InfobloxPluginException(err_msg)
         except requests.exceptions.ConnectionError as e:
             err_msg = (
                 f"Unable to establish connection with {PLATFORM_NAME} "
@@ -253,15 +254,14 @@ class InfobloxTIDEPluginHelper:
             if is_validation:
                 err_msg = (
                     f"Unable to establish connection with {PLATFORM_NAME} "
-                    f"platform.{PLATFORM_NAME}"
-                    " server is not reachable."
+                    f"platform. {PLATFORM_NAME} server is not reachable."
                 )
 
             self.logger.error(
                 message=f"{self.log_prefix}: {err_msg} Error: {e}",
                 details=traceback.format_exc(),
             )
-            raise InfobloxTIDEPluginException(err_msg)
+            raise InfobloxPluginException(err_msg)
         except requests.HTTPError as e:
             err_msg = f"HTTP error occurred while {logger_msg}."
             if is_validation:
@@ -273,7 +273,7 @@ class InfobloxTIDEPluginHelper:
                 message=f"{self.log_prefix}: {err_msg} Error: {e}",
                 details=traceback.format_exc(),
             )
-            raise InfobloxTIDEPluginException(err_msg)
+            raise InfobloxPluginException(err_msg)
         except Exception as e:
             err_msg = f"Unexpected error occurred while {logger_msg}."
             if is_validation:
@@ -285,14 +285,14 @@ class InfobloxTIDEPluginHelper:
                     message=f"{self.log_prefix}: {err_msg} Error: {e}",
                     details=traceback.format_exc(),
                 )
-                raise InfobloxTIDEPluginException(
+                raise InfobloxPluginException(
                     f"{err_msg} Check logs for more details."
                 )
             self.logger.error(
                 message=f"{self.log_prefix}: {err_msg} Error: {e}",
                 details=traceback.format_exc(),
             )
-            raise InfobloxTIDEPluginException(err_msg)
+            raise InfobloxPluginException(err_msg)
 
     def _handle_error(
         self,
@@ -356,14 +356,14 @@ class InfobloxTIDEPluginHelper:
                     message=f"{self.log_prefix}: {log_error_msg}",
                     details=f"API response: {response.text}",
                 )
-                raise InfobloxTIDEPluginException(log_error_msg)
+                raise InfobloxPluginException(log_error_msg)
             else:
                 err_msg = error_msg + " while " + logger_msg + "."
                 self.logger.error(
                     message=f"{self.log_prefix}: {err_msg}",
                     details=f"API response: {response.text}",
                 )
-                raise InfobloxTIDEPluginException(err_msg)
+                raise InfobloxPluginException(err_msg)
         else:
             err_msg = (
                 "HTTP Server Error"
@@ -381,7 +381,7 @@ class InfobloxTIDEPluginHelper:
                 ),
                 details=f"API response: {response.text}",
             )
-            raise InfobloxTIDEPluginException(err_msg)
+            raise InfobloxPluginException(err_msg)
 
     def _parse_response(
         self,
@@ -416,7 +416,7 @@ class InfobloxTIDEPluginHelper:
                     "Verify Infoblox Base URL provided in the "
                     "configuration parameters. Check logs for more details."
                 )
-            raise InfobloxTIDEPluginException(err_msg)
+            raise InfobloxPluginException(err_msg)
         except Exception as exp:
             err_msg = (
                 "Unexpected error occurred while parsing"
@@ -432,11 +432,13 @@ class InfobloxTIDEPluginHelper:
                     "Verify Infoblox Base URL provided in the "
                     "configuration parameters. Check logs for more details."
                 )
-            raise InfobloxTIDEPluginException(err_msg)
+            raise InfobloxPluginException(err_msg)
 
     def get_configuration_parameters(
         self, configuration: Dict
-    ) -> Tuple[str, str, List[str], str, int, str, int, str]:
+    ) -> Tuple[
+        str, str, List[str], str, int, str, int, str, List[str], List[str]
+    ]:
         """
         Get configuration parameters from the configuration dictionary.
 
@@ -445,9 +447,8 @@ class InfobloxTIDEPluginHelper:
                 parameters.
 
         Returns:
-            A tuple containing the base_url, api_key, type, is_pull_required,
-                retraction_interval, enable_tagging, initial_pull_range and
-                data_profile.
+            Tuple[str, str, List[str], str, int, str, int, str, List[str],
+                List[str]]: Tuple containing the configuration parameters.
         """
         return (
             configuration.get("base_url").strip().strip("/"),
@@ -458,16 +459,30 @@ class InfobloxTIDEPluginHelper:
             configuration.get("enable_tagging", ""),
             configuration.get("initial_pull_range"),
             configuration.get("data_profile", ""),
+            configuration.get("indicator_source_page"),
+            configuration.get("soc_insight_ioc_action_type", [])
         )
 
     def get_auth_headers(self, api_key: str) -> Dict:
         """
-        Get the authentication headers for the Infoblox TIDE plugin.
+        Get the authentication headers for the Infoblox plugin.
 
         Args:
-            api_key (str): The API key for the Infoblox TIDE plugin.
+            api_key (str): The API key for the Infoblox plugin.
 
         Returns:
             Dict: A dictionary containing the authentication headers.
         """
         return {"Authorization": f"Token token={api_key}"}
+
+    def generate_hash(self, value: str):
+        """
+        Generate a SHA-256 hash for the given string value.
+
+        Args:
+            value (str): The input string to hash.
+
+        Returns:
+            str: The hexadecimal SHA-256 hash of the input value.
+        """
+        return hashlib.sha256(value.encode()).hexdigest()
