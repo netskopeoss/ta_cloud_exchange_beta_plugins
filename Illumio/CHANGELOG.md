@@ -1,4 +1,4 @@
-# 1.1.1
+# 1.1.1-beta
 ## Changed
 - Updated plugin logo.
 
