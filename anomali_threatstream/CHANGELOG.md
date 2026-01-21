@@ -1,4 +1,8 @@
-# 1.3.1-beta
+# 1.3.2-beta
+## Fixed
+- Fixed IOC filtering issue while pulling data.
+
+# 1.3.1
 ## Fixed
 - Bug fixes.
 
