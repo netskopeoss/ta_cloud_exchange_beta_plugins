@@ -1,0 +1,43 @@
+{
+    "name": "Amazon Security Lake",
+    "id": "amazon_security_lake",
+    "version": "2.0.0-beta",
+    "module": "CLS",
+    "mapping": "Amazon Security Lake Default Mappings Beta",
+    "netskope": false,
+    "minimum_version": "6.0.0",
+    "types": [
+        "alerts",
+        "events",
+        "webtx"
+    ],
+    "format_options": [
+        {
+            "label": "OCSF",
+            "value": "ocsf"
+        }
+    ],
+    "description": "This plugin supports ingestion of Alerts (DLP, Malware, Policy, Compromised Credential, Malsite, Quarantine, Remediation, Security Assessment, Watchlist, UBA, CTEP, Device, and Content), Events (Page, Application, Audit, Infrastructure, Network, Incident, Endpoint and Client Status) and WebTx logs. The data will be ingested in the Amazon Security Lake Custom Source bucket. This plugin does not support ingestion of data in raw JSON format.",
+    "configuration": [
+        {
+            "label": "Authentication Method",
+            "key": "authentication_method",
+            "type": "choice",
+            "choices": [
+                {
+                    "key": "Deployed on AWS",
+                    "value": "deployed_on_aws"
+                },
+                {
+                    "key": "AWS IAM Roles Anywhere",
+                    "value": "aws_iam_roles_anywhere"
+                }
+            ],
+            "default": "deployed_on_aws",
+            "has_api_call": true,
+            "payload_fields": ["authentication_method"],
+            "mandatory": true,
+            "description": "Select the method to be used for AWS client authentication."
+        }
+    ]
+}
