@@ -1,4 +1,13 @@
-# 2.0.0-beta
+# 2.0.1-beta
+## Changed
+- API request optimization for access token generation.
+- Remove retraction interval validation from push retraction.
+## Fixed
+- Updated fields in request headers.
+- Updated logic to calculate pulled URL count.
+- Handled error logging for failed hash and URL sharing.
+
+# 2.0.0
 ## Added
 - Support for IoC(s) Retraction starting from CE v5.1.0.
 - Support for IoC Source Labeling starting from CE v5.1.0.
