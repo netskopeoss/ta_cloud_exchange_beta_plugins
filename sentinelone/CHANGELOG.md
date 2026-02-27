@@ -1,4 +1,8 @@
-# 1.3.0-beta
+# 1.4.0-beta
+## Added
+- Support for filtering indicators based on Analyst Verdict.
+
+# 1.3.0
 ## Added
 - Support for Global Scope account user.
 
