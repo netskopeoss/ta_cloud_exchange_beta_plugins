@@ -15,6 +15,7 @@ from . import (
     mailgun,
     popcornnotify,
     statuspage,
+    topdesk,
 )
 
 _all_providers = {
@@ -34,4 +35,5 @@ _all_providers = {
     "mailgun": mailgun.MailGun,
     "popcornnotify": popcornnotify.PopcornNotify,
     "statuspage": statuspage.Statuspage,
+    "topdesk": topdesk.Topdesk,
 }

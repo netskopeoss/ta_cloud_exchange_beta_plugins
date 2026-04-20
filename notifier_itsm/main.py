@@ -73,6 +73,8 @@ MAPPED_FIELDS = {
     "telegram": ["message"],
     "twilio": ["message"],
     "zulip": ["message", "subject"],
+    "topdesk": ["message"],
+
 }
 
 
@@ -93,6 +95,7 @@ PASSWORD_FIELDS = {
     "telegram": ["token"],
     "twilio": ["auth_token"],
     "zulip": ["api_key"],
+    "topdesk": ["api_key"],
 }
 
 EXCLUDED_FIELDS = {
@@ -112,6 +115,7 @@ EXCLUDED_FIELDS = {
     "telegram": [],
     "twilio": [],
     "zulip": [],
+    "topdesk": [],
 }
 
 
