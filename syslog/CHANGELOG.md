@@ -1,4 +1,8 @@
-# 4.1.0-beta
+# 4.1.1-beta
+## Added
+- Added support for skipping the priority from the JSON-formatted data.
+
+# 4.1.0
 ## Added
 - Added support for skipping the timestamp and log source identifier fields in JSON-formatted data.
 - Updated the mappings for Network events and Audit events.
