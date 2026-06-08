@@ -1,7 +1,7 @@
 {
     "name": "Microsoft Defender for Cloud Apps",
     "id": "mcas",
-    "version": "1.1.0",
+    "version": "1.1.0-beta",
     "minimum_version": "6.0.0",
     "description": "This plugin is used to pull IOCs of type Domains(Domains, FQDNs and Hostnames) from Show navigation > Cloud apps > Cloud app catalog under Microsoft Defender platform. The plugin supports pull retraction of IOCs from Microsoft Defender. This plugin does not support sharing of IOCs to Microsoft Defender platform.",
     "patch_supported": false,

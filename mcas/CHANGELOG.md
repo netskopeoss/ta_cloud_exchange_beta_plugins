@@ -1,4 +1,4 @@
-# 1.1.0
+# 1.1.0-beta
 ## Added
 - Added support for IoC(s) retraction.
 - Added support for Sanctioned, Unsanctioned, Allow, and Protected status indicators.

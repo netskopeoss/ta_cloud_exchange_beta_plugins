@@ -32,7 +32,7 @@ CTE Microsoft Defender for Cloud Apps plugin constants."""
 
 PLUGIN_NAME = "Microsoft Defender for Cloud Apps"
 MODULE_NAME = "CTE"
-PLUGIN_VERSION = "1.1.0"
+PLUGIN_VERSION = "1.1.0-beta"
 
 PAGE_SIZE = 1000
 MAX_API_CALLS = 4
