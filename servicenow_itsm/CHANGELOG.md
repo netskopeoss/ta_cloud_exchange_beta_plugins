@@ -1,3 +1,28 @@
+# 2.3.0-beta (Required minimum CE version for this is 6.0.0)
+## Added
+- Added support for assign ticket to Manager.
+- Added resolution for error logs.
+## Changed
+- Updated validation checks and refactored code to improve maintainability.
+
+# 2.2.0
+## Added
+- Added support for mapping custom status and severity fields.
+
+# 2.1.0
+## Added
+- Added support for the custom table.
+## Changed
+- Made Configuration Parameters stepper dynamic based on destination table value.
+
+# 2.0.0
+## Added
+- Added support for GRC Issue table.
+- Added support for Endpoint and Incident Events.
+- Added support for storing updates of Severity and Assignee along with status.
+## Changed
+- Changed the storage behavior to store old and new both the values.
+
 # 1.1.0
 ## Added
 - Added No Queue option in queue configuration.

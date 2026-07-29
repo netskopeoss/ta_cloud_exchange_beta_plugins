@@ -1,8 +1,10 @@
 {
   "name": "ServiceNow",
-  "description": "This plugin is used to create incidents on the ServiceNow platform. This plugin is **NOT** the same as ServiceNow's DLP Incident Response product, nor does this plugin works with that solution.",
+  "description": "This plugin is used to create incidents on the Incident > All page, security incidents on the Security Incident > Incidents > Show All Incidents page, GRC issues on the Policy and Compliance > Issues > All Issues page and records on the Custom Table record page of the ServiceNow platform. It also supports updating incidents/issues and syncing their status. This plugin is NOT the same as ServiceNow's DLP Incident Response product, nor does this plugin works with that solution.",
   "id": "servicenow_itsm",
-  "version": "1.1.0",
+  "version": "2.3.0-beta",
+  "module": "CTO",
+  "minimum_version": "6.0.0",
   "pulling_supported": false,
   "receiving_supported": true,
   "configuration": [
@@ -17,7 +19,7 @@
           "type": "text",
           "default": "",
           "mandatory": true,
-          "description": "ServiceNow instance URL."
+          "description": "ServiceNow instance URL. e.g. https://<instance-name>.service-now.com"
         },
         {
           "label": "Username",
@@ -25,7 +27,7 @@
           "type": "text",
           "default": "",
           "mandatory": true,
-          "description": "Instance username."
+          "description": "Username of your ServiceNow instance. Username can be created from 'System Security > Users and Groups > Users' page of the ServiceNow instance."
         },
         {
           "label": "Password",
@@ -33,15 +35,8 @@
           "type": "password",
           "default": "",
           "mandatory": true,
-          "description": "Instance password."
-        }
-      ]
-    },
-    {
-      "label": "Configuration Parameters",
-      "name": "params",
-      "type": "step",
-      "fields": [
+          "description": "Password of your ServiceNow instance. Password for the username can be set from 'System Security > Users and Groups > Users > Select User > Set Password' page of the ServiceNow instance."
+        },
         {
           "label": "Destination Table",
           "key": "table",
@@ -54,31 +49,26 @@
             {
               "key": "Incidents",
               "value": "incident"
+            },
+            {
+              "key": "GRC Issues",
+              "value": "sn_grc_issue"
+            },
+            {
+              "key": "Custom Table",
+              "value": "custom_table"
             }
           ],
           "default": "sn_si_incident",
           "mandatory": true,
-          "description": "Name of the table where incidents will be created."
-        },
-        {
-          "label": "Use Default Mappings",
-          "key": "default_mappings",
-          "type": "choice",
-          "choices": [
-            {
-              "key": "Yes",
-              "value": "yes"
-            },
-            {
-              "key": "No",
-              "value": "no"
-            }
-          ],
-          "default": "no",
-          "mandatory": true,
-          "description": "Select 'No' if the user wants to configure the mapping fields while configuring the queue and 'Yes' if the user wants to use the default mapping. Note: To configure the mapping fields while configuring the queue, the user should have read access to the 'sys_dictionary' table."
+          "description": "Select the ServiceNow table where incidents/issues will be created. Any changes in this parameter will affect all the created tickets by this plugin configuration in the Netskope CE."
         }
       ]
+    },
+    {
+      "label": "Configuration Parameters",
+      "name": "params",
+      "type": "dynamic_step"
     }
   ]
 }
