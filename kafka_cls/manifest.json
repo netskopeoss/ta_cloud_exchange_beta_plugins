@@ -1,0 +1,62 @@
+{
+    "name": "Kafka",
+    "id": "kafka",
+    "version": "1.1.0-beta",
+    "module": "CLS",
+    "minimum_version": "6.0.0",
+    "mapping": "Kafka Default Mappings Beta",
+    "format_options": [
+        {
+            "label": "CEF",
+            "value": "cef"
+        },
+        {
+            "label": "JSON",
+            "value": "json"
+        }
+    ],
+    "types": [
+        "alerts",
+        "events",
+        "webtx"
+    ],
+    "description": "This plugin is used to send Netskope Alerts (DLP, Malware, Policy, Compromised Credential, Malsite, Quarantine, Remediation, Security Assessment, Watchlist, UBA, CTEP, Device, Content), Events (Page, Application, Audit, Infrastructure, Network, Incident, Endpoint, Client Status) and WebTx data to Kafka Topic. This plugin supports ingestion in JSON and CEF format.",
+    "configuration": [
+        {
+            "label": "Kafka Broker Address",
+            "key": "kafka_broker",
+            "type": "text",
+            "default": "",
+            "mandatory": true,
+            "description": "DNS/IP Address/FQDN of the Kafka broker to which data will be sent. Note: the plugin only needs one broker that will respond to the Metadata API request."
+        },
+        {
+            "label": "Kafka Port",
+            "key": "kafka_port",
+            "type": "number",
+            "default": "",
+            "mandatory": true,
+            "description": "Port on which the configured Kafka broker is listening. Value should be an integer in range 1 to 65535."
+        },
+        {
+            "label": "Kafka Security Protocol",
+            "key": "security_protocol",
+            "type": "choice",
+            "choices": [
+                {
+                    "key": "SSL",
+                    "value": "SSL"
+                },
+                {
+                    "key": "PLAINTEXT",
+                    "value": "PLAINTEXT"
+                }
+            ],
+            "default": "SSL",
+            "mandatory": true,
+            "has_api_call": true,
+            "payload_fields": ["security_protocol"],
+            "description": "Select the security protocol using which authentication will be performed and data will be sent to the Kafka cluster. Selecting 'SSL' will require the Kafka CA Certificate, Kafka Client Certificate, Kafka Client Private Key and Kafka SSL Private Key Password to establish a mutual TLS connection."
+        }
+    ]
+}
