@@ -1,10 +1,10 @@
 {
-  "name": "Notifier",
-  "description": "Send notifications to various platforms.",
-  "id": "notifier_itsm",
+  "name": "Notifier Topdesk",
+  "description": "Send notifications to topdesk.",
+  "id": "topdesk_itsm",
   "pulling_supported": false,
   "receiving_supported": true,
-  "version": "1.1.0-beta",
+  "version": "1.1.0",
   "configuration": [
     {
       "label": "Platform",
@@ -81,6 +81,10 @@
             {
               "key": "Zulip",
               "value": "zulip"
+            },
+            {
+              "key": "Topdesk",
+              "value": "topdesk"
             }
           ]
         }
