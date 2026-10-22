@@ -1,0 +1,55 @@
+{
+    "name": "Scality",
+    "id": "scality",
+    "version": "1.1.0-beta",
+    "module": "CLS",
+    "minimum_version": "6.1.0",
+    "mapping": "Scality Default Mappings Beta",
+    "netskope": false,
+    "types": [
+        "events",
+        "alerts",
+        "webtx"
+    ],
+    "description": "This plugin supports ingestion of Alerts (DLP, Malware, Policy, Compromised Credential, Malsite, Quarantine, Remediation, Security Assessment, Watchlist, UBA, CTEP, Device, Content), Events (Page, Application, Audit, Infrastructure, Network, Incident, Endpoint, Client Status) and WebTx data to a Scality bucket. This plugin supports ingestion in JSON format only.",
+    "format_options": [
+        {
+            "label": "JSON",
+            "value": "json"
+        }
+    ],
+    "configuration": [
+        {
+            "label": "Scality Endpoint URL",
+            "key": "endpoint_url",
+            "type": "text",
+            "default": "",
+            "mandatory": true,
+            "description": "Endpoint URL of the Scality instance."
+        },
+        {
+            "label": "Access Key",
+            "key": "access_key",
+            "type": "text",
+            "default": "",
+            "mandatory": true,
+            "description": "Access Key for the Scality instance."
+        },
+        {
+            "label": "Secret Access Key",
+            "key": "secret_access_key",
+            "type": "password",
+            "default": "",
+            "mandatory": true,
+            "description": "Secret Access Key for the Scality instance."
+        },
+        {
+            "label": "Scality Bucket Name",
+            "key": "bucket_name",
+            "type": "text",
+            "default": "",
+            "mandatory": true,
+            "description": "Name of the Scality bucket in which the log objects will be stored. The bucket must already exist on Scality."
+        }
+    ]
+}
